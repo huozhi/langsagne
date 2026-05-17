@@ -51,7 +51,7 @@ This project keeps c4's broad flow, but uses names and runtime shapes that fit a
 c4 concept                 this project                         purpose
 --------------------------------------------------------------------------------
 p, lp                      lexer - source cursor                source position
-tk, ival                   lexer - token context                current token/value
+tk, ival                   lexer - token state                  current token/value
 token constants            lexer - token kinds                  token names + precedence
 next()                     lexer - tokenizer                    scan chars into tokens
 sym, id                    lexer - symbol table                 identifier metadata
@@ -359,7 +359,7 @@ src/
 ```
 
 - `src/lexer/source.ts`: source text and cursor.
-- `src/lexer/context.ts`: current token and token value.
+- `src/lexer/token-state.ts`: current token and token value.
 - `src/lexer/tokenize.ts`: character stream to tokens.
 - `src/lexer/token-kind.ts`: token names and precedence ordering. This is a plain object, not a TypeScript `enum`.
 - `src/lexer/symbol-table.ts`: current identifier metadata. This should evolve toward JavaScript-like bindings rather than C-like symbols.

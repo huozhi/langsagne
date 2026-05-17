@@ -1,22 +1,27 @@
-type TokenKindMap = Record<string, number> & {
-  label(value: number): string | undefined
+const tokenKindLabels = new Map<number, string>()
+
+export const TokenKind = {
+  Number: 1,
+  Global: 2,
+  Identifier: 3,
+  String: 4,
+  Else: 5,
+  If: 6,
+  Function: 7,
+  Return: 8,
+  While: 9,
+  Assign: 10,
+  LessThan: 11,
+  Add: 12,
+  Subtract: 13,
+  Multiply: 14,
+  Divide: 15,
+
+  label(value: number) {
+    return tokenKindLabels.get(value)
+  },
 }
 
-const defineTokenKinds = (keys: string[], start = 1): TokenKindMap => {
-  const tokenKinds = keys.reduce((tokens, key) => {
-    tokens[key] = start++
-    return tokens
-  }, {} as TokenKindMap)
-
-  Object.defineProperty(tokenKinds, 'label', {
-    value: (value: number) => Object.keys(tokenKinds).find(key => tokenKinds[key] === value),
-  })
-
-  return tokenKinds
+for (const [name, value] of Object.entries(TokenKind)) {
+  if (typeof value === 'number') tokenKindLabels.set(value, name)
 }
-
-export const TokenKind = defineTokenKinds([
-  'Number', 'Global', 'Identifier', 'String',
-  'Else', 'If', 'Function', 'Return', 'While',
-  'Assign', 'LessThan', 'Add', 'Subtract', 'Multiply', 'Divide',
-])

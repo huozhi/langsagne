@@ -5,63 +5,65 @@ describe('tokenizer', () => {
   it('recognizes keywords, identifiers, operators, and numbers', () => {
     const {
       constants: { TokenKind },
-      Context,
       next,
       Source,
       SymbolTable,
+      TokenState,
     } = freshRuntime()
 
     Source.initialize('while (count_1 < 42) {}')
 
     next()
-    expect(Context.token).toBe(TokenKind.While)
+    expect(TokenState.token).toBe(TokenKind.While)
 
     next()
-    expect(Context.token).toBe('(')
+    expect(TokenState.token).toBe('(')
+    expect(TokenState.value).toBe(null)
 
     next()
-    expect(Context.token).toBe(TokenKind.Identifier)
-    expect(Context.value).toBe('count_1')
+    expect(TokenState.token).toBe(TokenKind.Identifier)
+    expect(TokenState.value).toBe('count_1')
     expect(SymbolTable.find('count_1')).toMatchObject({
       class: TokenKind.Global,
       type: TokenKind.Identifier,
     })
 
     next()
-    expect(Context.token).toBe(TokenKind.LessThan)
+    expect(TokenState.token).toBe(TokenKind.LessThan)
+    expect(TokenState.value).toBe(null)
 
     next()
-    expect(Context.token).toBe(TokenKind.Number)
-    expect(Context.value).toBe(42)
+    expect(TokenState.token).toBe(TokenKind.Number)
+    expect(TokenState.value).toBe(42)
   })
 
   it('recognizes function and return keywords', () => {
     const {
       constants: { TokenKind },
-      Context,
       next,
       Source,
+      TokenState,
     } = freshRuntime()
 
     Source.initialize('fn add() { return 1; }')
 
     next()
-    expect(Context.token).toBe(TokenKind.Function)
+    expect(TokenState.token).toBe(TokenKind.Function)
 
     next()
-    expect(Context.token).toBe(TokenKind.Identifier)
-    expect(Context.value).toBe('add')
+    expect(TokenState.token).toBe(TokenKind.Identifier)
+    expect(TokenState.value).toBe('add')
 
     next()
-    expect(Context.token).toBe('(')
+    expect(TokenState.token).toBe('(')
 
     next()
-    expect(Context.token).toBe(')')
+    expect(TokenState.token).toBe(')')
 
     next()
-    expect(Context.token).toBe('{')
+    expect(TokenState.token).toBe('{')
 
     next()
-    expect(Context.token).toBe(TokenKind.Return)
+    expect(TokenState.token).toBe(TokenKind.Return)
   })
 })

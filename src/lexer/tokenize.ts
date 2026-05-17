@@ -1,6 +1,6 @@
-import Context from './context.ts'
-import Source from './source.ts'
-import SymbolTable from './symbol-table.ts'
+import { Source } from './source.ts'
+import { SymbolTable } from './symbol-table.ts'
+import { TokenState } from './token-state.ts'
 import { TokenKind } from './token-kind.ts'
 
 function isDigit(chr: string | undefined) {
@@ -9,6 +9,11 @@ function isDigit(chr: string | undefined) {
 
 function isAlpha(chr: string | undefined) {
   return chr != null && ((chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z'))
+}
+
+function setToken(token: string | number, value: string | number | null = null) {
+  TokenState.token = token
+  TokenState.value = value
 }
 
 export function next(_expected?: string | number) {
@@ -20,8 +25,7 @@ export function next(_expected?: string | number) {
       while (isDigit(Source.val)) {
         value = value * 10 + (+Source.read())
       }
-      Context.value = value
-      Context.token = TokenKind.Number
+      setToken(TokenKind.Number, value)
 
       return
     } else if (isAlpha(ch) || ch === '_') {
@@ -30,28 +34,25 @@ export function next(_expected?: string | number) {
         // console.log('isAlpha', Source.val, isAlpha(Source.val))
         ident += Source.read()
       }
-      // console.log('ident', ident, Context.token, TokenKind.While)
-      if (ident === 'while') Context.token = TokenKind.While
-      else if (ident === 'if') Context.token = TokenKind.If
-      else if (ident === 'else') Context.token = TokenKind.Else
-      else if (ident === 'fn') Context.token = TokenKind.Function
-      else if (ident === 'return') Context.token = TokenKind.Return
+      // console.log('ident', ident, TokenState.token, TokenKind.While)
+      if (ident === 'while') setToken(TokenKind.While)
+      else if (ident === 'if') setToken(TokenKind.If)
+      else if (ident === 'else') setToken(TokenKind.Else)
+      else if (ident === 'fn') setToken(TokenKind.Function)
+      else if (ident === 'return') setToken(TokenKind.Return)
       else {
-        Context.token = TokenKind.Identifier
-        Context.value = ident
+        setToken(TokenKind.Identifier, ident)
 
         SymbolTable.insert(ident, {type: TokenKind.Identifier, class: TokenKind.Global})
       }
       return
     }
-    else if (ch === '+') { Context.token = TokenKind.Add; return }
-    else if (ch === '-') { Context.token = TokenKind.Subtract; return }
-    else if (ch === '*') { Context.token = TokenKind.Multiply; return }
-    else if (ch === '/') { Context.token = TokenKind.Divide; return }
-    else if (ch === '=') { Context.token = TokenKind.Assign; return }
-    else if (ch === '<') { Context.token = TokenKind.LessThan; return }
-    else if (ch === '(' || ch === ')' || ch === '{' || ch === '}' || ch === ';') { Context.token = ch; return }
+    else if (ch === '+') { setToken(TokenKind.Add); return }
+    else if (ch === '-') { setToken(TokenKind.Subtract); return }
+    else if (ch === '*') { setToken(TokenKind.Multiply); return }
+    else if (ch === '/') { setToken(TokenKind.Divide); return }
+    else if (ch === '=') { setToken(TokenKind.Assign); return }
+    else if (ch === '<') { setToken(TokenKind.LessThan); return }
+    else if (ch === '(' || ch === ')' || ch === '{' || ch === '}' || ch === ';') { setToken(ch); return }
   }
 }
-
-export default next

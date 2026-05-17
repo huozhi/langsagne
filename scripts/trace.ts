@@ -2,9 +2,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { parse } from '../src/compiler/parse.ts'
 import { renderTrace, renderTraceFrame } from '../src/debug/trace.ts'
-import Source from '../src/lexer/source.ts'
+import { Source } from '../src/lexer/source.ts'
 import { resetRuntime } from '../src/runtime/runtime.ts'
-import VM from '../src/runtime/vm.ts'
+import { VM } from '../src/runtime/vm.ts'
 
 const defaultFixtures = [
   'fixture/expression',

@@ -100,5 +100,3 @@ export const VM = {
   load: (commands: any[]) => VM.emitted.push(...commands),
   reset: () => { VM.emitted.length = 0 },
 }
-
-export default VM

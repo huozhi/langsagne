@@ -1,15 +1,15 @@
-import Context from '../lexer/context.ts'
-import Source from '../lexer/source.ts'
+import { Source } from '../lexer/source.ts'
+import { TokenState } from '../lexer/token-state.ts'
 import { TokenKind } from '../lexer/token-kind.ts'
-import next from '../lexer/tokenize.ts'
+import { next } from '../lexer/tokenize.ts'
 import { OpCode } from '../runtime/op-code.ts'
 import { emitted } from '../runtime/vm.ts'
 
 const error = (message = '') => { throw new Error('PARSE ERR: ' + message) }
 
 function consume(expected: string | number) {
-  if (Context.token !== expected) {
-    const actual = typeof Context.token === 'number' ? TokenKind.label(Context.token) : Context.token
+  if (TokenState.token !== expected) {
+    const actual = typeof TokenState.token === 'number' ? TokenKind.label(TokenState.token) : TokenState.token
     error(`expected ${expected} but get ${actual}`)
   }
 
@@ -27,9 +27,9 @@ function consume(expected: string | number) {
 // program    : [statement ';']
 
 function statement() {
-  if (!Context.token && !Source.eof()) next()
+  if (!TokenState.token && !Source.eof()) next()
 
-  if (!Source.eof() && Context.token === TokenKind.While) {
+  if (!Source.eof() && TokenState.token === TokenKind.While) {
     next()
     consume('(')
     const loopStart = emitted.length
@@ -42,19 +42,19 @@ function statement() {
     emitted.push(OpCode.JMP)
     emitted.push(loopStart)
     emitted[exitTarget] = emitted.length
-  } else if (Context.token === '{') {
+  } else if (TokenState.token === '{') {
     block()
-  } else if (Context.token === ';') {
+  } else if (TokenState.token === ';') {
     next() // // empty statement
   } else {
     expr(TokenKind.Assign)
-    if (Context.token === ';') { next(';') } else { error(`expected ; but get ${TokenKind.label(Context.token as number)}`) }
+    if (TokenState.token === ';') { next(';') } else { error(`expected ; but get ${TokenKind.label(TokenState.token as number)}`) }
   }
 }
 
 function block() {
   consume('{')
-  while (!Source.eof() && Context.token !== '}') {
+  while (!Source.eof() && TokenState.token !== '}') {
     statement()
   }
   consume('}')
@@ -63,33 +63,33 @@ function block() {
 function expr(level = 0) {
   if (Source.eof()) return
   // console.log('Source.val', Source.val)
-  if (Context.token === TokenKind.Number) {
-    // console.log('push value', Context.value)
+  if (TokenState.token === TokenKind.Number) {
+    // console.log('push value', TokenState.value)
     emitted.push(OpCode.CONST)
-    emitted.push(Context.value)
+    emitted.push(TokenState.value)
     next()
-  } else if (Context.token === '(') {
+  } else if (TokenState.token === '(') {
     consume('(')
     expr(TokenKind.Assign)
     consume(')')
-  } else if (Context.token === TokenKind.Identifier) {
-    const ident = Context.value
+  } else if (TokenState.token === TokenKind.Identifier) {
+    const ident = TokenState.value
     next() // Ident
     emitted.push(OpCode.LOAD)
     emitted.push(ident)
   }
 
-  while ((Context.token as number) >= level) {
+  while ((TokenState.token as number) >= level) {
     // console.log('level', level)
-    if (Context.token === TokenKind.Add) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply); emitted.push(OpCode.ADD) }
-    else if (Context.token === TokenKind.Subtract) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply); emitted.push(OpCode.SUB) }
-    else if (Context.token === TokenKind.Multiply) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply + 1); emitted.push(OpCode.MUL) }
-    else if (Context.token === TokenKind.Divide) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply + 1); emitted.push(OpCode.DIV) }
-    else if (Context.token === TokenKind.LessThan) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Add); emitted.push(OpCode.LT) }
-    else if (Context.token === ';') {
+    if (TokenState.token === TokenKind.Add) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply); emitted.push(OpCode.ADD) }
+    else if (TokenState.token === TokenKind.Subtract) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply); emitted.push(OpCode.SUB) }
+    else if (TokenState.token === TokenKind.Multiply) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply + 1); emitted.push(OpCode.MUL) }
+    else if (TokenState.token === TokenKind.Divide) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply + 1); emitted.push(OpCode.DIV) }
+    else if (TokenState.token === TokenKind.LessThan) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Add); emitted.push(OpCode.LT) }
+    else if (TokenState.token === ';') {
       next(';')
     }
-    else if (Context.token === TokenKind.Assign) {
+    else if (TokenState.token === TokenKind.Assign) {
       next('=')
       const target = emitted.pop()
       const load = emitted.pop()
@@ -101,7 +101,7 @@ function expr(level = 0) {
       emitted.push(target)
     }
 
-    else { error('parsing fail ' + Context.token) }
+    else { error('parsing fail ' + TokenState.token) }
   }
 }
 
@@ -110,5 +110,3 @@ export function parse() {
     statement()
   }
 }
-
-export default parse

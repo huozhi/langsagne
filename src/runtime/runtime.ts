@@ -1,13 +1,13 @@
-import { resetContext } from '../lexer/context.ts'
-import Source from '../lexer/source.ts'
-import SymbolTable from '../lexer/symbol-table.ts'
-import { resetStore } from './storage.ts'
-import VM from './vm.ts'
+import { Source } from '../lexer/source.ts'
+import { SymbolTable } from '../lexer/symbol-table.ts'
+import { TokenState } from '../lexer/token-state.ts'
+import { Store } from './storage.ts'
+import { VM } from './vm.ts'
 
-export function resetRuntime(sourceText = '') {
-  resetContext()
-  resetStore()
+export function resetRuntime(code = '') {
+  TokenState.reset()
+  Store.reset()
   SymbolTable.reset()
   VM.reset()
-  Source.initialize(sourceText)
+  Source.initialize(code)
 }

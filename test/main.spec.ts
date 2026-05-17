@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { execute } from '../src/index.ts'
 import { compile } from './helpers.ts'
 import { readFile } from './utils.ts'
 
@@ -21,5 +22,11 @@ describe('language execution', () => {
     expect(storage.Store.ax).toBe(1)
     expect(storage.Store.env.get('i')).toBe(2)
     expect(storage.Store.env.get('sum')).toBe(1)
+  })
+
+  it('exposes a single public execute API', () => {
+    const result = execute('a = 1; b = a + 2; b;')
+
+    expect(result).toBe(3)
   })
 })

@@ -1,11 +1,12 @@
-export { parse } from './compiler/parse.ts'
-export { renderTrace, renderTraceFrame } from './debug/trace.ts'
-export { Context, resetContext } from './lexer/context.ts'
-export { Source } from './lexer/source.ts'
-export { SymbolTable } from './lexer/symbol-table.ts'
-export { TokenKind } from './lexer/token-kind.ts'
-export { next } from './lexer/tokenize.ts'
-export { OpCode } from './runtime/op-code.ts'
-export { resetRuntime } from './runtime/runtime.ts'
-export { Store, resetStore } from './runtime/storage.ts'
-export { VM, emitted } from './runtime/vm.ts'
+import { parse } from './compiler/parse.ts'
+import { resetRuntime } from './runtime/runtime.ts'
+import { Store } from './runtime/storage.ts'
+import { VM } from './runtime/vm.ts'
+
+export function execute(code: string) {
+  resetRuntime(code)
+  parse()
+  VM.execute()
+
+  return Store.ax
+}

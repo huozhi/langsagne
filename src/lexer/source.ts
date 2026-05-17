@@ -12,5 +12,3 @@ export const Source = {
   eof: () => i === str.length,
   initialize(text: string) { str = text; i = 0 },
 }
-
-export default Source

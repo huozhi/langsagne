@@ -33,10 +33,12 @@ bun run trace -- --step fixture/loop
 
 Use Enter or `n` for next, `p` for previous, and `q` to quit.
 
-Run a TypeScript source file directly with Node's native type stripping:
+Use the package entry API:
 
-```
-node src/index.ts
+```ts
+import { execute } from './src/index.ts'
+
+console.log(execute('a = 1; b = a + 2; b;')) // 3
 ```
 
 Runtime/compiler code lives in `src/`, grouped by pipeline stage:

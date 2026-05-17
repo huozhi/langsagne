@@ -1,13 +1,14 @@
-type StringEnum = Record<string, string>
-
-const defineOpCodes = (keys: string[]): StringEnum => keys.reduce((opcodes, key) => {
-  opcodes[key] = key
-  return opcodes
-}, {} as StringEnum)
-
-export const OpCode = defineOpCodes([
-  'CONST', 'LOAD', 'STORE', 'PUSH',
-  'JMP', 'BZ',
-  'ADD', 'SUB', 'MUL', 'DIV', 'LT',
-  'EXIT',
-])
+export const OpCode = {
+  CONST: 'CONST',
+  LOAD: 'LOAD',
+  STORE: 'STORE',
+  PUSH: 'PUSH',
+  JMP: 'JMP',
+  BZ: 'BZ',
+  ADD: 'ADD',
+  SUB: 'SUB',
+  MUL: 'MUL',
+  DIV: 'DIV',
+  LT: 'LT',
+  EXIT: 'EXIT',
+}
