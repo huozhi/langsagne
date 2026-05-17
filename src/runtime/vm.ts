@@ -14,6 +14,7 @@ export type VmTraceStep = {
   pc: number
   op: DirectiveItem
   operands: DirectiveItem[]
+  sourceLine: number | null
   before: VmSnapshot
   after: VmSnapshot
 }
@@ -81,20 +82,21 @@ function execute(text: DirectiveItem[], shouldTrace: boolean) {
     else if (op === Directive.LT) { Store.ax = popNumber() < numberValue(Store.ax) ? 1 : 0 }
     else if (op === Directive.PRINT) { console.log(Store.ax) }
     else if (op === Directive.EXIT) {
-      if (shouldTrace) trace.push({ pc, op, operands, before, after: snapshot() })
+      if (shouldTrace) trace.push({ pc, op, operands, sourceLine: directiveLines.get(pc) ?? null, before, after: snapshot() })
       break
     }
     else {
       break
     }
 
-    if (shouldTrace) trace.push({ pc, op, operands, before, after: snapshot() })
+    if (shouldTrace) trace.push({ pc, op, operands, sourceLine: directiveLines.get(pc) ?? null, before, after: snapshot() })
   }
 
   return trace
 }
 
 let directiveItems: DirectiveItem[] = []
+let directiveLines = new Map<number, number>()
 
 export const VM = {
   directives: () => Object.freeze(directiveItems),
@@ -104,6 +106,7 @@ export const VM = {
   patch: (index: number, value: DirectiveItem) => { directiveItems[index] = value },
   pop: () => directiveItems.pop(),
   position: () => directiveItems.length,
-  reset: () => { directiveItems = [] },
+  mark: (line: number) => { directiveLines.set(directiveItems.length, line) },
+  reset: () => { directiveItems = []; directiveLines = new Map() },
   trace: () => execute(directiveItems, true),
 }

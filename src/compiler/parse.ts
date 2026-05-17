@@ -7,6 +7,11 @@ import { VM } from '../runtime/vm.ts'
 
 const error = (message: string) => { throw new Error('PARSE ERR: ' + message) }
 
+function emit(...items: Parameters<typeof VM.emit>) {
+  VM.mark(Source.line)
+  VM.emit(...items)
+}
+
 function consume(expected: string | number) {
   if (TokenState.token !== expected) {
     const actual = typeof TokenState.token === 'number' ? TokenKind.label(TokenState.token) : TokenState.token
@@ -35,11 +40,11 @@ function statement() {
     const loopStart = VM.position()
     expr(TokenKind.Assign)
     consume(')')
-    VM.emit(Directive.BZ)
+    emit(Directive.BZ)
     const exitTarget = VM.position()
-    VM.emit(null)
+    emit(null)
     block()
-    VM.emit(Directive.JMP, loopStart)
+    emit(Directive.JMP, loopStart)
     VM.patch(exitTarget, VM.position())
   } else if (TokenState.token === '{') {
     block()
@@ -64,7 +69,7 @@ function expr(level = 0) {
   // console.log('Source.val', Source.val)
   if (TokenState.token === TokenKind.Number) {
     // console.log('push value', TokenState.value)
-    VM.emit(Directive.CONST, TokenState.value)
+    emit(Directive.CONST, TokenState.value)
     next()
   } else if (TokenState.token === '(') {
     consume('(')
@@ -79,19 +84,19 @@ function expr(level = 0) {
       consume('(')
       expr(TokenKind.Assign)
       consume(')')
-      VM.emit(Directive.PRINT)
+      emit(Directive.PRINT)
     } else {
-      VM.emit(Directive.LOAD, ident)
+      emit(Directive.LOAD, ident)
     }
   }
 
   while ((TokenState.token as number) >= level) {
     // console.log('level', level)
-    if (TokenState.token === TokenKind.Add) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Multiply); VM.emit(Directive.ADD) }
-    else if (TokenState.token === TokenKind.Subtract) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Multiply); VM.emit(Directive.SUB) }
-    else if (TokenState.token === TokenKind.Multiply) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Multiply + 1); VM.emit(Directive.MUL) }
-    else if (TokenState.token === TokenKind.Divide) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Multiply + 1); VM.emit(Directive.DIV) }
-    else if (TokenState.token === TokenKind.LessThan) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Add); VM.emit(Directive.LT) }
+    if (TokenState.token === TokenKind.Add) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply); emit(Directive.ADD) }
+    else if (TokenState.token === TokenKind.Subtract) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply); emit(Directive.SUB) }
+    else if (TokenState.token === TokenKind.Multiply) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply + 1); emit(Directive.MUL) }
+    else if (TokenState.token === TokenKind.Divide) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply + 1); emit(Directive.DIV) }
+    else if (TokenState.token === TokenKind.LessThan) { next(); emit(Directive.PUSH); expr(TokenKind.Add); emit(Directive.LT) }
     else if (TokenState.token === ';') {
       next()
     }
@@ -103,7 +108,7 @@ function expr(level = 0) {
         error('bad lvalue in assignment')
       }
       expr(TokenKind.Assign)
-      VM.emit(Directive.STORE, target)
+      emit(Directive.STORE, target)
     }
 
     else { error('parsing fail ' + TokenState.token) }

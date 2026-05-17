@@ -17,6 +17,8 @@ coverage/
 dist/
 build/
 out/
+.next/
+next-env.d.ts
 
 # Runtime and cache files
 .cache/

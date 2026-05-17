@@ -71,4 +71,17 @@ describe('parser', () => {
     expect(directives.at(-2)).toBe('i')
     expect(directives.at(-1)).toBe(Directive.ADD)
   })
+
+  it('records source lines for trace steps', () => {
+    const {
+      constants: { Directive },
+      VM,
+    } = compile(readFile('../fixture/weighted-loop'))
+
+    const trace = VM.trace()
+
+    expect(trace[0].sourceLine).toBe(1)
+    expect(trace.find(step => step.op === Directive.BZ)?.sourceLine).toBe(3)
+    expect(trace.find(step => step.op === Directive.MUL)?.sourceLine).toBe(4)
+  })
 })
