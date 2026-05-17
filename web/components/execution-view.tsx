@@ -69,7 +69,7 @@ const sourceLineRow = `${lineRow} relative gap-x-3 max-md:gap-x-2.5`
 const sourceLineHighlight = 'absolute inset-0 z-0 rounded bg-highlight'
 const sourceGutter = 'relative z-10 shrink-0 pl-1 pt-px text-gutter max-md:pl-0.5'
 const sourceCodeClass = 'relative z-10 block min-w-0 whitespace-pre-wrap break-words'
-const tokenOverlayClass = 'pointer-events-none fixed z-[25] rounded-none bg-brown/60 backdrop-brightness-75 backdrop-contrast-125 transition-[top,left,width,height] duration-200 ease-out will-change-[top,left,width,height]'
+const tokenOverlayClass = 'pointer-events-none absolute z-[25] rounded-none bg-brown/60 backdrop-brightness-75 backdrop-contrast-125 transition-[top,left,width,height] duration-200 ease-out will-change-[top,left,width,height]'
 const sourceList = 'm-0 min-h-[calc(5*1.55rem)] max-h-[calc(5*1.55rem)] list-none overflow-y-auto overflow-x-hidden p-0 text-[0.84rem] leading-snug max-md:min-h-[calc(5*1.35rem)] max-md:max-h-[calc(5*1.35rem)] max-md:text-[0.78rem] max-md:leading-tight'
 const directiveList = 'm-0 min-h-[calc(5*1.55rem)] max-h-[calc(5*1.55rem)] list-none overflow-y-auto overflow-x-hidden p-0 text-[0.78rem] leading-snug max-md:min-h-[calc(5*1.35rem)] max-md:max-h-[calc(5*1.35rem)] max-md:text-[0.72rem] max-md:leading-tight'
 const directiveLineRow = `${lineRow} relative`
@@ -203,15 +203,7 @@ function overlayRectsEqual(a: TokenOverlayRect | null, b: TokenOverlayRect | nul
   return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height
 }
 
-function measureTokenOverlay(listEl: HTMLElement, step: VmTraceStep): TokenOverlayRect | null {
-  if (step.sourceLine === null || step.sourceColumn === null || step.sourceLength === null) return null
-
-  const code = listEl.querySelector<HTMLElement>(`[data-source-line="${step.sourceLine}"]`)
-  const row = code?.closest('li')
-  if (!code || !row) return null
-
-  const start = step.sourceColumn - 1
-  const end = start + step.sourceLength
+function measureOverlayRect(listEl: HTMLElement, code: HTMLElement, row: Element, start: number, end: number) {
   const range = document.createRange()
   if (!setRangeCharacterBounds(range, code, start, end)) return null
 
@@ -229,13 +221,47 @@ function measureTokenOverlay(listEl: HTMLElement, step: VmTraceStep): TokenOverl
   )
 
   const rowRect = row.getBoundingClientRect()
-
+  const listRect = listEl.getBoundingClientRect()
   return {
-    top: Math.round(rowRect.top),
-    left: Math.round(tokenBox.left),
+    top: Math.round(rowRect.top - listRect.top + listEl.scrollTop),
+    left: Math.round(tokenBox.left - listRect.left + listEl.scrollLeft),
     width: Math.round(tokenBox.right - tokenBox.left),
     height: Math.round(rowRect.height),
   }
+}
+
+function measureFirstVisibleTokenOverlay(listEl: HTMLElement): TokenOverlayRect | null {
+  const codes = listEl.querySelectorAll<HTMLElement>('[data-source-line]')
+  for (const code of codes) {
+    const row = code.closest('li')
+    if (!row) continue
+    const text = code.textContent ?? ''
+    const match = /\S+/.exec(text)
+    if (!match) continue
+    const start = match.index
+    const end = start + match[0].length
+    const rect = measureOverlayRect(listEl, code, row, start, end)
+    if (rect) return rect
+  }
+  return null
+}
+
+function measureTokenOverlay(listEl: HTMLElement, step: VmTraceStep): TokenOverlayRect | null {
+  if (step.pc === 0) {
+    return measureFirstVisibleTokenOverlay(listEl)
+  }
+
+  if (step.sourceLine === null || step.sourceColumn === null || step.sourceLength === null) {
+    return measureFirstVisibleTokenOverlay(listEl)
+  }
+
+  const code = listEl.querySelector<HTMLElement>(`[data-source-line="${step.sourceLine}"]`)
+  const row = code?.closest('li')
+  if (!code || !row) return measureFirstVisibleTokenOverlay(listEl)
+
+  const start = step.sourceColumn - 1
+  const end = start + step.sourceLength
+  return measureOverlayRect(listEl, code, row, start, end) ?? measureFirstVisibleTokenOverlay(listEl)
 }
 
 function renderSourceLine(line: string, lineNumber: number, step: VmTraceStep) {
@@ -255,7 +281,7 @@ function renderSourceLine(line: string, lineNumber: number, step: VmTraceStep) {
   return (
     <code className={sourceCodeClass} data-source-line={lineNumber}>
       {line.slice(0, start)}
-      <span className="text-code-token-fg">{line.slice(start, end)}</span>
+      <span className="text-white">{line.slice(start, end)}</span>
       {line.slice(end)}
     </code>
   )
@@ -516,17 +542,28 @@ function SourcePanel({ code, step }: { code: string, step: VmTraceStep }) {
 
     const observer = new ResizeObserver(() => measureOverlay())
     observer.observe(listEl)
-    listEl.addEventListener('scroll', measureOverlay, { passive: true })
     return () => {
       observer.disconnect()
-      listEl.removeEventListener('scroll', measureOverlay)
     }
   }, [measureOverlay, code])
 
   return (
     <section className="flex min-w-0 flex-col overflow-hidden max-md:min-h-0">
       <h2 className={panelTitle}>code</h2>
-      <ol ref={listRef} className={sourceList}>
+      <ol ref={listRef} className={`${sourceList} relative`}>
+        {tokenOverlay ? (
+          <div
+            aria-hidden
+            className={tokenOverlayClass}
+            data-token-overlay="source-active-token"
+            style={{
+              height: tokenOverlay.height,
+              left: tokenOverlay.left - 4,
+              top: tokenOverlay.top,
+              width: tokenOverlay.width + 8,
+            }}
+          />
+        ) : null}
         {lines.map(row => {
           const isActiveLine = row.number === step.sourceLine
           return (
@@ -538,19 +575,6 @@ function SourcePanel({ code, step }: { code: string, step: VmTraceStep }) {
           )
         })}
       </ol>
-      {tokenOverlay ? (
-        <div
-          aria-hidden
-          className={tokenOverlayClass}
-          data-token-overlay="source-active-token"
-          style={{
-            height: tokenOverlay.height,
-            left: tokenOverlay.left - 4,
-            top: tokenOverlay.top,
-            width: tokenOverlay.width + 8,
-          }}
-        />
-      ) : null}
     </section>
   )
 }

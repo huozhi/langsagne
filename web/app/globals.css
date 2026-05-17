@@ -48,3 +48,25 @@
     @apply bg-highlight text-accent;
   }
 }
+
+@keyframes cursorFlash {
+  0%,
+  49%,
+  62%,
+  100% {
+    background-color: var(--color-fg);
+    color: var(--color-bg);
+  }
+
+  50%,
+  61% {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
+.title-cursor {
+  display: inline-block;
+  padding-inline: 0.08em;
+  animation: cursorFlash 8s steps(1, end) infinite;
+}
