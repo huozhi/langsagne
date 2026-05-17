@@ -11,8 +11,8 @@ const departureMono = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'lang vm demo',
-  description: 'step through tokens, directives, and VM state',
+  title: 'lang',
+  description: 'minimal programming language parser and execution experiment',
 }
 
 type LayoutProps = {
@@ -23,12 +23,14 @@ export default function RootLayout({ children }: LayoutProps) {
   return (
     <html lang="en">
       <body className={`${departureMono.className} ${departureMono.variable}`}>
-        <div className="site-shell">
-          <header>
-            <h1>
+        <div className="mx-auto min-h-screen w-full max-w-[920px] px-5 pb-12 max-md:pb-8">
+          <header className="border-b border-line py-6 pb-4 mb-4 max-md:py-4 max-md:pb-3">
+            <h1 className="m-0 text-[clamp(2.75rem,11vw,4rem)] leading-none font-normal tracking-tight [&_code]:bg-transparent [&_code]:text-[length:inherit] [&_code]:text-inherit">
               <code>lang</code>
             </h1>
-            <p className="tagline">step through source, directives, VM state, then tokens</p>
+            <p className="mt-2.5 max-w-[34rem] text-sm leading-snug tracking-wide text-muted">
+              minimal programming language parser and execution experiment
+            </p>
           </header>
           <main>{children}</main>
         </div>

@@ -58,6 +58,12 @@ result;`,
   },
 ]
 
+const panelTitle = 'm-0 mb-2 text-[0.72rem] font-normal tracking-[0.14em] text-muted uppercase max-md:mb-1 max-md:text-[0.65rem]'
+const switcherBtn = 'rounded-md bg-bg-elevated px-2 py-0.5 leading-tight text-muted hover:bg-highlight hover:text-fg'
+const transportBtn = 'inline-flex size-8 items-center justify-center rounded-md bg-bg-elevated p-0 text-lg leading-none text-fg hover:bg-highlight hover:text-accent'
+const lineRow = '-mx-1.5 grid min-h-[1.55rem] grid-cols-[3ch_1fr] items-center gap-2.5 rounded px-1.5 py-0.5 max-md:min-h-[1.35rem]'
+const stateCell = 'box-border block max-w-full overflow-x-hidden overflow-y-auto rounded-md bg-bg-elevated p-2 break-words text-fg'
+
 function valueText(value: RuntimeValue) {
   if (value === undefined) return 'undefined'
   return JSON.stringify(value)
@@ -67,12 +73,32 @@ type StateField = {
   name: string
   alias: string
   format: (snapshot: VmTraceStep['before']) => string
+  rowClass: string
+  codeClass: string
 }
 
 const stateFields: StateField[] = [
-  { name: 'accumulator', alias: 'ax', format: snapshot => valueText(snapshot.ax) },
-  { name: 'value stack', alias: 'vs', format: snapshot => stackCellText(snapshot.vs) },
-  { name: 'environment', alias: 'env', format: snapshot => envCellText(snapshot.env) },
+  {
+    name: 'accumulator',
+    alias: 'ax',
+    format: snapshot => valueText(snapshot.ax),
+    rowClass: 'h-[3.1rem]',
+    codeClass: 'h-[2.1rem] min-h-[2.1rem] max-h-[2.1rem]',
+  },
+  {
+    name: 'value stack',
+    alias: 'vs',
+    format: snapshot => stackCellText(snapshot.vs),
+    rowClass: 'h-[5.35rem]',
+    codeClass: 'h-[4.35rem] min-h-[4.35rem] max-h-[4.35rem]',
+  },
+  {
+    name: 'environment',
+    alias: 'env',
+    format: snapshot => envCellText(snapshot.env),
+    rowClass: 'h-[6.85rem]',
+    codeClass: 'h-[5.85rem] min-h-[5.85rem] max-h-[5.85rem]',
+  },
 ]
 
 function envCellText(env: Record<string, RuntimeValue>) {
@@ -88,6 +114,15 @@ function stackCellText(values: RuntimeValue[]) {
 
 function directiveText(step: VmTraceStep) {
   return [step.op, ...step.operands].map(String).join(' ')
+}
+
+function metaSlotWidths(trace: readonly VmTraceStep[]) {
+  const pcDigits = Math.max(String(Math.max(0, trace.length - 1)).length, 1)
+  let directiveChars = 1
+  for (const traceStep of trace) {
+    directiveChars = Math.max(directiveChars, directiveText(traceStep).length)
+  }
+  return { pcDigits, directiveChars }
 }
 
 function directiveHasOperand(item: DirectiveItem) {
@@ -162,11 +197,14 @@ function ProgramSwitcher({
   const program = programs[activeProgram]
 
   return (
-    <nav className="program-switcher" aria-label="program">
-      <span className="program-switcher-label">Program</span>
+    <nav
+      className="m-0 grid w-72 min-w-0 grid-cols-[auto_auto_1fr_auto] items-center gap-1.5 text-sm max-md:w-full"
+      aria-label="program"
+    >
+      <span className="text-[0.72rem] tracking-widest text-muted uppercase">Program</span>
       <button
         type="button"
-        className="program-switcher-btn"
+        className={switcherBtn}
         aria-label="Previous program"
         onClick={() => {
           setActiveProgram(previousProgramIndex(activeProgram))
@@ -175,10 +213,10 @@ function ProgramSwitcher({
       >
         [&lt;]
       </button>
-      <span className="program-switcher-name">{program.name}</span>
+      <span className="w-full min-w-0 truncate text-center text-fg">{program.name}</span>
       <button
         type="button"
-        className="program-switcher-btn"
+        className={switcherBtn}
         aria-label="Next program"
         onClick={() => {
           setActiveProgram(nextProgramIndex(activeProgram))
@@ -191,33 +229,76 @@ function ProgramSwitcher({
   )
 }
 
+function ResultRow({ step, trace }: { step: VmTraceStep, trace: readonly VmTraceStep[] }) {
+  const currentResult = valueText(step.after.ax)
+  let resultChars = Math.max(currentResult.length, 4)
+  for (const traceStep of trace) {
+    resultChars = Math.max(resultChars, valueText(traceStep.after.ax).length)
+  }
+
+  return (
+    <p className="mt-2 flex flex-nowrap items-baseline gap-1 overflow-hidden text-sm leading-snug whitespace-nowrap tabular-nums text-muted">
+      <span className="shrink-0">result</span>
+      <span className="min-w-0 truncate text-fg text-2xl" style={{ minWidth: `${resultChars}ch` }}>
+        {currentResult}
+      </span>
+    </p>
+  )
+}
+
 function OpsBoard({
   activeStep,
   stepCount,
   step,
   result,
+  playing,
+  setPlaying,
   setActiveStep,
 }: {
   activeStep: number
   stepCount: number
   step: VmTraceStep
   result: InspectResult
+  playing: boolean
+  setPlaying: (value: boolean) => void
   setActiveStep: (value: number) => void
 }) {
+  const { pcDigits, directiveChars } = metaSlotWidths(result.trace)
+
+  function pauseAndSetStep(value: number) {
+    setPlaying(false)
+    setActiveStep(value)
+  }
+
   return (
-    <section className="ops-board">
-      <div className="ops-toolbar">
-        <div className="meta step-meta">
-          pc {step.pc} · {directiveText(step)} · result {valueText(result.result)}
-        </div>
+    <section className="my-4 py-4 border-t border-line">
+      <div className="flex flex-nowrap items-center justify-between gap-4 max-md:flex-col max-md:items-stretch max-md:gap-2">
+        <p className="m-0 flex min-w-0 flex-1 flex-nowrap items-baseline gap-x-2 overflow-hidden p-0 text-sm leading-snug whitespace-nowrap tabular-nums text-muted max-md:text-xs">
+          <span className="inline-flex shrink-0 items-baseline gap-1">
+            <span>pc</span>
+            <span className="inline-block text-right text-fg" style={{ width: `${pcDigits}ch` }}>{step.pc}</span>
+          </span>
+          <span className="shrink-0 text-gutter">·</span>
+          <span className="inline-block shrink-0 truncate text-fg" style={{ width: `${directiveChars}ch` }}>
+            {directiveText(step)}
+          </span>
+        </p>
         <StepTransport
           activeStep={activeStep}
           stepCount={stepCount}
-          setActiveStep={setActiveStep}
+          playing={playing}
+          setPlaying={setPlaying}
+          setActiveStep={pauseAndSetStep}
         />
       </div>
-      <p className="hotkeys">
-        <kbd>←</kbd> <kbd>→</kbd> step · <kbd>[</kbd> <kbd>]</kbd> program · <kbd>1</kbd>–<kbd>3</kbd> pick · <kbd>r</kbd> restart
+      <p className="mt-3 text-xs text-gutter max-md:hidden">
+        <kbd className="rounded bg-highlight px-1 py-0.5 text-fg">←</kbd>{' '}
+        <kbd className="rounded bg-highlight px-1 py-0.5 text-fg">→</kbd> step ·{' '}
+        <kbd className="rounded bg-highlight px-1 py-0.5 text-fg">p</kbd> play ·{' '}
+        <kbd className="rounded bg-highlight px-1 py-0.5 text-fg">[</kbd>{' '}
+        <kbd className="rounded bg-highlight px-1 py-0.5 text-fg">]</kbd> program ·{' '}
+        <kbd className="rounded bg-highlight px-1 py-0.5 text-fg">1</kbd>–<kbd className="rounded bg-highlight px-1 py-0.5 text-fg">3</kbd> pick ·{' '}
+        <kbd className="rounded bg-highlight px-1 py-0.5 text-fg">r</kbd> restart
       </p>
     </section>
   )
@@ -226,33 +307,46 @@ function OpsBoard({
 function StepTransport({
   activeStep,
   stepCount,
+  playing,
+  setPlaying,
   setActiveStep,
 }: {
   activeStep: number
   stepCount: number
+  playing: boolean
+  setPlaying: (value: boolean) => void
   setActiveStep: (value: number) => void
 }) {
   const atStart = activeStep === 0
   const atEnd = activeStep >= stepCount - 1
+  const digits = Math.max(String(stepCount).length, 1)
+  const counterWidth = `${digits * 2 + 3}ch`
+  const slotWidth = `${digits}ch`
 
   return (
-    <div className="step-transport-wrap">
-      <div className="step-transport" aria-label="execution steps">
+    <div className="flex shrink-0 flex-col items-center gap-1.5 self-start max-md:w-full max-md:flex-row max-md:items-center max-md:justify-between">
+      <div className="inline-flex items-center gap-0.5" aria-label="execution steps">
         <button
           type="button"
-          className="transport-btn"
+          className={transportBtn}
           disabled={atStart}
           aria-label="Previous step"
           onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
         >
           ‹
         </button>
-        <span className="transport-count" aria-live="polite">
-          {activeStep + 1}<span className="transport-total"> / {stepCount}</span>
+        <span
+          className="inline-flex items-baseline justify-center px-1.5 text-[0.88rem] tabular-nums"
+          style={{ minWidth: counterWidth }}
+          aria-live="polite"
+        >
+          <span className="text-right text-fg" style={{ width: slotWidth }}>{activeStep + 1}</span>
+          <span className="px-0.5 text-gutter">/</span>
+          <span className="text-left text-gutter" style={{ width: slotWidth }}>{stepCount}</span>
         </span>
         <button
           type="button"
-          className="transport-btn"
+          className={transportBtn}
           disabled={atEnd}
           aria-label="Next step"
           onClick={() => setActiveStep(Math.min(stepCount - 1, activeStep + 1))}
@@ -260,15 +354,27 @@ function StepTransport({
           ›
         </button>
       </div>
-      <button
-        type="button"
-        className="transport-restart"
-        disabled={atStart}
-        aria-label="Restart from first step"
-        onClick={() => setActiveStep(0)}
-      >
-        restart
-      </button>
+      <div className="inline-flex items-center gap-2">
+        <button
+          type="button"
+          className="rounded-md bg-transparent px-2 py-0.5 text-[0.78rem] tracking-wide text-muted hover:bg-highlight hover:text-accent disabled:opacity-30"
+          disabled={stepCount <= 1}
+          aria-pressed={playing}
+          aria-label={playing ? 'Pause auto play' : 'Auto play steps'}
+          onClick={() => setPlaying(!playing)}
+        >
+          {playing ? 'pause' : 'play'}
+        </button>
+        <button
+          type="button"
+          className="rounded-md bg-transparent px-2 py-0.5 text-[0.78rem] tracking-wide text-muted hover:bg-highlight hover:text-accent disabled:opacity-30"
+          disabled={atStart}
+          aria-label="Restart from first step"
+          onClick={() => setActiveStep(0)}
+        >
+          restart
+        </button>
+      </div>
     </div>
   )
 }
@@ -276,13 +382,16 @@ function StepTransport({
 function SourcePanel({ code, step }: { code: string, step: VmTraceStep }) {
   const lines = sourceWindow(code, step.sourceLine)
   return (
-    <section className="panel panel-col panel-code">
-      <h2>code</h2>
-      <ol className="source-list">
+    <section className="flex min-w-0 flex-col overflow-hidden max-md:min-h-0">
+      <h2 className={panelTitle}>code</h2>
+      <ol className="m-0 h-[calc(5*1.55rem)] min-h-[calc(5*1.55rem)] list-none overflow-hidden p-0 text-[0.84rem] leading-snug max-md:h-[calc(5*1.35rem)] max-md:min-h-[calc(5*1.35rem)] max-md:text-[0.78rem] max-md:leading-tight">
         {lines.map(row => (
-          <li key={row.number} className={row.number === step.sourceLine ? 'active' : ''}>
-            <span>{String(row.number).padStart(2, '0')}</span>
-            <code>{row.line}</code>
+          <li
+            key={row.number}
+            className={`${lineRow} ${row.number === step.sourceLine ? 'bg-highlight text-fg' : ''}`}
+          >
+            <span className="text-gutter">{String(row.number).padStart(2, '0')}</span>
+            <code className="block min-w-0 overflow-x-auto whitespace-pre">{row.line}</code>
           </li>
         ))}
       </ol>
@@ -293,12 +402,15 @@ function SourcePanel({ code, step }: { code: string, step: VmTraceStep }) {
 function DirectivePanel({ result, step }: { result: InspectResult, step: VmTraceStep }) {
   const rows = directiveWindow(result.directives, step.pc)
   return (
-    <section className="panel panel-col panel-directives">
-      <h2>directives</h2>
-      <ol className="directive-list">
+    <section className="flex min-w-0 flex-col overflow-hidden max-md:min-h-0">
+      <h2 className={panelTitle}>directives</h2>
+      <ol className="m-0 h-[calc(6*1.55rem)] min-h-[calc(6*1.55rem)] list-none overflow-hidden p-0 text-[0.84rem] leading-snug max-md:h-[calc(5*1.35rem)] max-md:min-h-[calc(5*1.35rem)] max-md:text-[0.78rem] max-md:leading-tight">
         {rows.map(row => (
-          <li key={row.pc} className={row.pc === step.pc ? 'active' : ''}>
-            <span>{String(row.pc).padStart(2, '0')}</span>
+          <li
+            key={row.pc}
+            className={`${lineRow} ${row.pc === step.pc ? 'bg-highlight text-fg' : ''}`}
+          >
+            <span className="text-gutter">{String(row.pc).padStart(2, '0')}</span>
             <code>{row.text}</code>
           </li>
         ))}
@@ -309,30 +421,38 @@ function DirectivePanel({ result, step }: { result: InspectResult, step: VmTrace
 
 function StatePanel({ step }: { step: VmTraceStep }) {
   return (
-    <section className="panel state-panel">
-      <h2>state</h2>
-      <table className="state-table">
+    <section className="mt-2 min-w-0 overflow-x-auto overflow-y-visible border-t border-line pt-3 max-md:mt-0 max-md:border-t-0 max-md:pt-0">
+      <h2 className={panelTitle}>state</h2>
+      <table className="w-[41rem] max-w-full table-fixed border-collapse text-[0.84rem] leading-snug max-md:text-[0.8rem]">
         <colgroup>
-          <col className="state-col-label" />
-          <col className="state-col-value" />
-          <col className="state-col-value" />
+          <col className="w-44" />
+          <col className="w-60" />
+          <col className="w-60" />
         </colgroup>
         <thead>
           <tr>
             <th scope="col" />
-            <th scope="col">before</th>
-            <th scope="col">after</th>
+            <th scope="col" className="px-2.5 py-2 text-left align-top text-[0.72rem] font-normal tracking-widest text-muted uppercase">
+              before
+            </th>
+            <th scope="col" className="px-2.5 py-2 text-left align-top text-[0.72rem] font-normal tracking-widest text-muted uppercase">
+              after
+            </th>
           </tr>
         </thead>
         <tbody>
           {stateFields.map(field => (
-            <tr key={field.alias} className={`state-row state-row-${field.alias}`}>
-              <th scope="row">
-                <span className="state-field-name">{field.name}</span>
-                <span className="state-field-alias"> ({field.alias})</span>
+            <tr key={field.alias} className={`border-t border-line ${field.rowClass}`}>
+              <th scope="row" className="px-2.5 py-2 text-left align-top font-normal text-fg">
+                <span>{field.name}</span>
+                <span className="text-gutter"> ({field.alias})</span>
               </th>
-              <td><code>{field.format(step.before)}</code></td>
-              <td><code>{field.format(step.after)}</code></td>
+              <td className="overflow-hidden px-2.5 py-2 text-left align-top">
+                <code className={`${stateCell} ${field.codeClass}`}>{field.format(step.before)}</code>
+              </td>
+              <td className="overflow-hidden px-2.5 py-2 text-left align-top">
+                <code className={`${stateCell} ${field.codeClass}`}>{field.format(step.after)}</code>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -343,14 +463,14 @@ function StatePanel({ step }: { step: VmTraceStep }) {
 
 function TokenPanel({ result }: { result: InspectResult }) {
   return (
-    <section className="panel panel-tokens">
-      <h2>tokens</h2>
-      <ol className="token-list">
+    <section className="mt-4 border-t border-line pt-4">
+      <h2 className="m-0 mb-1.5 text-[0.65rem] font-normal tracking-[0.14em] text-muted uppercase">tokens</h2>
+      <ol className="m-0 flex list-none flex-wrap gap-x-2 gap-y-1 p-0 text-[0.72rem] leading-snug">
         {result.tokens.map((token, index) => (
-          <li key={`${token.line}-${token.label}-${index}`}>
-            <span>{token.line}</span>
-            <code>{token.label}</code>
-            {token.value !== null ? <small>{String(token.value)}</small> : null}
+          <li key={`${token.line}-${token.label}-${index}`} className="inline-flex items-center gap-1 text-fg">
+            <span className="text-[0.68rem] text-gutter">{token.line}</span>
+            <code className="text-muted">{token.label}</code>
+            {token.value !== null ? <small className="text-[0.68rem] text-gutter">{String(token.value)}</small> : null}
           </li>
         ))}
       </ol>
@@ -361,9 +481,27 @@ function TokenPanel({ result }: { result: InspectResult }) {
 export function ExecutionView() {
   const [activeProgram, setActiveProgram] = useState(0)
   const [activeStep, setActiveStep] = useState(0)
+  const [playing, setPlaying] = useState(false)
   const program = programs[activeProgram]
   const result = useMemo(() => inspect(program.code), [program.code])
   const step = result.trace[activeStep] ?? result.trace[0]
+
+  useEffect(() => {
+    setPlaying(false)
+    setActiveStep(0)
+  }, [program.code])
+
+  useEffect(() => {
+    if (!playing) return
+    if (activeStep >= result.trace.length - 1) {
+      setPlaying(false)
+      return
+    }
+    const id = window.setTimeout(() => {
+      setActiveStep(current => current + 1)
+    }, 500)
+    return () => window.clearTimeout(id)
+  }, [playing, activeStep, result.trace.length])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -371,24 +509,34 @@ export function ExecutionView() {
 
       if (event.key === 'ArrowLeft' || event.key === 'h') {
         event.preventDefault()
+        setPlaying(false)
         setActiveStep(current => Math.max(0, current - 1))
         return
       }
 
       if (event.key === 'ArrowRight' || event.key === 'l' || event.key === ' ') {
         event.preventDefault()
+        setPlaying(false)
         setActiveStep(current => Math.min(result.trace.length - 1, current + 1))
         return
       }
 
       if (event.key === 'Home' || event.key.toLowerCase() === 'r') {
         event.preventDefault()
+        setPlaying(false)
         setActiveStep(0)
+        return
+      }
+
+      if (event.key.toLowerCase() === 'p') {
+        event.preventDefault()
+        setPlaying(current => !current)
         return
       }
 
       if (event.key === '[' || event.key === 'j') {
         event.preventDefault()
+        setPlaying(false)
         setActiveProgram(current => previousProgramIndex(current))
         setActiveStep(0)
         return
@@ -396,6 +544,7 @@ export function ExecutionView() {
 
       if (event.key === ']' || event.key === 'k') {
         event.preventDefault()
+        setPlaying(false)
         setActiveProgram(current => nextProgramIndex(current))
         setActiveStep(0)
         return
@@ -404,6 +553,7 @@ export function ExecutionView() {
       const programIndex = Number(event.key) - 1
       if (Number.isInteger(programIndex) && programIndex >= 0 && programIndex < programs.length) {
         event.preventDefault()
+        setPlaying(false)
         setActiveProgram(programIndex)
         setActiveStep(0)
       }
@@ -414,25 +564,35 @@ export function ExecutionView() {
   }, [result.trace.length])
 
   return (
-    <>
-      <ProgramSwitcher
-        activeProgram={activeProgram}
-        setActiveProgram={setActiveProgram}
-        setActiveStep={setActiveStep}
-      />
-      <section className="code-directives-grid">
-        <SourcePanel code={program.code} step={step} />
-        <DirectivePanel result={result} step={step} />
+    <div>
+      <section className="flex flex-col gap-4 max-md:gap-3" aria-label="source and step controls">
+        <ProgramSwitcher
+          activeProgram={activeProgram}
+          setActiveProgram={setActiveProgram}
+          setActiveStep={setActiveStep}
+        />
+        <section className="grid grid-cols-2 items-start gap-5 max-md:grid-cols-2 max-md:gap-3">
+          <SourcePanel code={program.code} step={step} />
+          <DirectivePanel result={result} step={step} />
+        </section>
+        <ResultRow step={step} trace={result.trace} />
+        <OpsBoard
+          activeStep={activeStep}
+          stepCount={result.trace.length}
+          step={step}
+          result={result}
+          playing={playing}
+          setPlaying={setPlaying}
+          setActiveStep={setActiveStep}
+        />
       </section>
-      <OpsBoard
-        activeStep={activeStep}
-        stepCount={result.trace.length}
-        step={step}
-        result={result}
-        setActiveStep={setActiveStep}
-      />
-      <StatePanel step={step} />
-      <TokenPanel result={result} />
-    </>
+      <section
+        className="max-md:border-t max-md:border-line max-md:pt-6 max-md:pb-4"
+        aria-label="vm state and tokens"
+      >
+        <StatePanel step={step} />
+        <TokenPanel result={result} />
+      </section>
+    </div>
   )
 }
