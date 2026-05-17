@@ -1,4 +1,6 @@
-while (i < 10) {
+i = 0;
+sum = 0;
+while (i < 2) {
   sum = sum + i;
   i = i + 1;
 }

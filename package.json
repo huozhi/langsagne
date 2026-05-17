@@ -1,0 +1,29 @@
+{
+  "name": "lang",
+  "version": "1.0.0",
+  "description": "> Practice for interpretation of simple handmade language",
+  "type": "module",
+  "main": "src/index.ts",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "bun test",
+    "trace": "bun scripts/trace.ts"
+  },
+  "packageManager": "bun@1.3.13",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huozhi/lang.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/huozhi/lang/issues"
+  },
+  "homepage": "https://github.com/huozhi/lang#readme",
+  "devDependencies": {
+    "@types/bun": "^1.3.14"
+  }
+}
