@@ -15,8 +15,16 @@ function setToken(token: string | number, value: string | number | null = null) 
   TokenState.value = value
 }
 
+function finishToken(startLine: number, startColumn: number) {
+  TokenState.startLine = startLine
+  TokenState.startColumn = startColumn
+  TokenState.length = Math.max(1, Source.column - startColumn)
+}
+
 export function next() {
   while (!Source.eof()) {
+    const startLine = Source.line
+    const startColumn = Source.column
     const ch = Source.read()
 
     if (isDigit(ch)) {
@@ -25,18 +33,22 @@ export function next() {
         value = value * 10 + (+Source.read())
       }
       setToken(TokenKind.Number, value)
-
+      finishToken(startLine, startColumn)
       return TokenState
-    } else if (ch === '"' || ch === "'") {
+    }
+
+    if (ch === '"' || ch === "'") {
       let value = ''
       while (!Source.eof() && Source.val !== ch) {
         value += Source.read()
       }
       Source.read()
       setToken(TokenKind.String, value)
-
+      finishToken(startLine, startColumn)
       return TokenState
-    } else if (isAlpha(ch) || ch === '_') {
+    }
+
+    if (isAlpha(ch) || ch === '_') {
       let ident = ch
       while (isAlpha(Source.val) || Source.val === '_' || isDigit(Source.val)) {
         ident += Source.read()
@@ -46,19 +58,20 @@ export function next() {
       else if (ident === 'else') setToken(TokenKind.Else)
       else if (ident === 'fn') setToken(TokenKind.Function)
       else if (ident === 'return') setToken(TokenKind.Return)
-      else {
-        setToken(TokenKind.Identifier, ident)
-      }
+      else setToken(TokenKind.Identifier, ident)
+      finishToken(startLine, startColumn)
       return TokenState
     }
-    else if (ch === '+') { setToken(TokenKind.Add); return TokenState }
-    else if (ch === '-') { setToken(TokenKind.Subtract); return TokenState }
-    else if (ch === '*') { setToken(TokenKind.Multiply); return TokenState }
-    else if (ch === '/') { setToken(TokenKind.Divide); return TokenState }
-    else if (ch === '=') { setToken(TokenKind.Assign); return TokenState }
-    else if (ch === '<') { setToken(TokenKind.LessThan); return TokenState }
-    else if (ch === '(' || ch === ')' || ch === '{' || ch === '}' || ch === ';' || ch === ',') {
+
+    if (ch === '+') { setToken(TokenKind.Add); finishToken(startLine, startColumn); return TokenState }
+    if (ch === '-') { setToken(TokenKind.Subtract); finishToken(startLine, startColumn); return TokenState }
+    if (ch === '*') { setToken(TokenKind.Multiply); finishToken(startLine, startColumn); return TokenState }
+    if (ch === '/') { setToken(TokenKind.Divide); finishToken(startLine, startColumn); return TokenState }
+    if (ch === '=') { setToken(TokenKind.Assign); finishToken(startLine, startColumn); return TokenState }
+    if (ch === '<') { setToken(TokenKind.LessThan); finishToken(startLine, startColumn); return TokenState }
+    if (ch === '(' || ch === ')' || ch === '{' || ch === '}' || ch === ';' || ch === ',') {
       setToken(ch)
+      finishToken(startLine, startColumn)
       return TokenState
     }
   }

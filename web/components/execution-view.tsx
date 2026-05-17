@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   inspect,
   type DirectiveItem,
   type InspectResult,
+  type InspectToken,
   type RuntimeValue,
   type VmTraceStep,
 } from '../../src/index'
@@ -23,7 +24,9 @@ while (i < 4) {
   sum = sum + i * 2;
   i = i + 1;
 }
-sum + i;`,
+sum + i;
+print(sum + 4);
+`,
   },
   {
     name: 'print flow',
@@ -61,8 +64,19 @@ result;`,
 const panelTitle = 'm-0 mb-2 text-[0.72rem] font-normal tracking-[0.14em] text-muted uppercase max-md:mb-1 max-md:text-[0.65rem]'
 const switcherBtn = 'rounded-md bg-bg-elevated px-2 py-0.5 leading-tight text-muted hover:bg-highlight hover:text-fg'
 const transportBtn = 'inline-flex size-8 items-center justify-center rounded-md bg-bg-elevated p-0 text-lg leading-none text-fg hover:bg-highlight hover:text-accent'
-const lineRow = '-mx-1.5 grid min-h-[1.55rem] grid-cols-[3ch_1fr] items-center gap-2.5 rounded px-1.5 py-0.5 max-md:min-h-[1.35rem]'
-const stateCell = 'box-border block max-w-full overflow-x-hidden overflow-y-auto rounded-md bg-bg-elevated p-2 break-words text-fg'
+const lineRow = '-mx-1.5 grid min-h-[1.55rem] grid-cols-[3ch_1fr] items-start gap-2.5 rounded px-1.5 py-0.5 max-md:min-h-[1.35rem]'
+const sourceLineRow = `${lineRow} relative gap-x-3 max-md:gap-x-2.5`
+const sourceLineHighlight = 'absolute inset-0 z-0 rounded bg-highlight'
+const sourceGutter = 'relative z-10 shrink-0 pl-1 pt-px text-gutter max-md:pl-0.5'
+const sourceCodeClass = 'relative z-10 block min-w-0 whitespace-pre-wrap break-words'
+const tokenOverlayClass = 'pointer-events-none fixed z-[25] rounded-none bg-brown/60 backdrop-brightness-75 backdrop-contrast-125 transition-[top,left,width,height] duration-200 ease-out will-change-[top,left,width,height]'
+const sourceList = 'm-0 min-h-[calc(5*1.55rem)] max-h-[calc(5*1.55rem)] list-none overflow-y-auto overflow-x-hidden p-0 text-[0.84rem] leading-snug max-md:min-h-[calc(5*1.35rem)] max-md:max-h-[calc(5*1.35rem)] max-md:text-[0.78rem] max-md:leading-tight'
+const directiveList = 'm-0 min-h-[calc(5*1.55rem)] max-h-[calc(5*1.55rem)] list-none overflow-y-auto overflow-x-hidden p-0 text-[0.78rem] leading-snug max-md:min-h-[calc(5*1.35rem)] max-md:max-h-[calc(5*1.35rem)] max-md:text-[0.72rem] max-md:leading-tight'
+const directiveLineRow = `${lineRow} relative`
+const directiveLineHighlight = 'absolute inset-0 z-0 rounded bg-highlight'
+const directiveGutter = 'relative z-10 shrink-0 pl-1 pt-px text-gutter max-md:pl-0.5'
+const directiveCodeClass = 'relative z-10 min-w-0 break-words'
+const stateCell = 'box-border block max-w-full overflow-x-hidden overflow-y-auto rounded-md bg-bg-elevated p-2 break-words whitespace-pre-wrap text-fg'
 
 function valueText(value: RuntimeValue) {
   if (value === undefined) return 'undefined'
@@ -72,7 +86,7 @@ function valueText(value: RuntimeValue) {
 type StateField = {
   name: string
   alias: string
-  format: (snapshot: VmTraceStep['before']) => string
+  format: (snapshot: VmTraceStep['after']) => string
   rowClass: string
   codeClass: string
 }
@@ -141,6 +155,112 @@ type DirectiveRow = {
 
 const sourceLineCount = 5
 
+function isActiveToken(step: VmTraceStep, token: InspectToken) {
+  return step.sourceLine === token.line
+    && step.sourceColumn === token.column
+    && step.sourceLength === token.length
+}
+
+type TokenOverlayRect = {
+  height: number
+  left: number
+  top: number
+  width: number
+}
+
+function setRangeCharacterBounds(range: Range, root: HTMLElement, start: number, end: number) {
+  let offset = 0
+  let startNode: Text | null = null
+  let startOffset = 0
+  let endNode: Text | null = null
+  let endOffset = 0
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text
+    const length = node.data.length
+    if (!startNode && offset + length > start) {
+      startNode = node
+      startOffset = start - offset
+    }
+    if (!endNode && offset + length >= end) {
+      endNode = node
+      endOffset = end - offset
+      break
+    }
+    offset += length
+  }
+
+  if (!startNode || !endNode) return false
+  range.setStart(startNode, startOffset)
+  range.setEnd(endNode, endOffset)
+  return true
+}
+
+function overlayRectsEqual(a: TokenOverlayRect | null, b: TokenOverlayRect | null) {
+  if (a === b) return true
+  if (!a || !b) return false
+  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height
+}
+
+function measureTokenOverlay(listEl: HTMLElement, step: VmTraceStep): TokenOverlayRect | null {
+  if (step.sourceLine === null || step.sourceColumn === null || step.sourceLength === null) return null
+
+  const code = listEl.querySelector<HTMLElement>(`[data-source-line="${step.sourceLine}"]`)
+  const row = code?.closest('li')
+  if (!code || !row) return null
+
+  const start = step.sourceColumn - 1
+  const end = start + step.sourceLength
+  const range = document.createRange()
+  if (!setRangeCharacterBounds(range, code, start, end)) return null
+
+  const rangeRects = [...range.getClientRects()]
+  if (rangeRects.length === 0) return null
+
+  const tokenBox = rangeRects.reduce(
+    (bounds, rect) => ({
+      bottom: Math.max(bounds.bottom, rect.bottom),
+      left: Math.min(bounds.left, rect.left),
+      right: Math.max(bounds.right, rect.right),
+      top: Math.min(bounds.top, rect.top),
+    }),
+    { bottom: -Infinity, left: Infinity, right: -Infinity, top: Infinity },
+  )
+
+  const rowRect = row.getBoundingClientRect()
+
+  return {
+    top: Math.round(rowRect.top),
+    left: Math.round(tokenBox.left),
+    width: Math.round(tokenBox.right - tokenBox.left),
+    height: Math.round(rowRect.height),
+  }
+}
+
+function renderSourceLine(line: string, lineNumber: number, step: VmTraceStep) {
+  const isActiveLine = step.sourceLine === lineNumber
+  const hasToken = isActiveLine && step.sourceColumn !== null && step.sourceLength !== null
+
+  if (!hasToken) {
+    return (
+      <code className={sourceCodeClass} data-source-line={lineNumber}>
+        {line}
+      </code>
+    )
+  }
+
+  const start = step.sourceColumn! - 1
+  const end = start + step.sourceLength!
+  return (
+    <code className={sourceCodeClass} data-source-line={lineNumber}>
+      {line.slice(0, start)}
+      <span className="text-code-token-fg">{line.slice(start, end)}</span>
+      {line.slice(end)}
+    </code>
+  )
+}
+
 function sourceWindow(code: string, activeLine: number | null): SourceRow[] {
   const lines = code.split('\n')
   if (activeLine === null) {
@@ -169,8 +289,8 @@ function directiveWindow(directives: readonly DirectiveItem[], activePc: number)
   }
 
   const activeIndex = Math.max(0, rows.findIndex(row => row.pc === activePc))
-  const start = Math.max(0, Math.min(activeIndex - 2, rows.length - 6))
-  return rows.slice(start, start + 6)
+  const start = Math.max(0, Math.min(activeIndex - 2, rows.length - 5))
+  return rows.slice(start, start + 5)
 }
 
 function isFormTarget(target: EventTarget | null) {
@@ -271,7 +391,7 @@ function OpsBoard({
   }
 
   return (
-    <section className="my-4 py-4 border-t border-line">
+    <section className="my-2 py-2 border-t border-line">
       <div className="flex flex-nowrap items-center justify-between gap-4 max-md:flex-col max-md:items-stretch max-md:gap-2">
         <p className="m-0 flex min-w-0 flex-1 flex-nowrap items-baseline gap-x-2 overflow-hidden p-0 text-sm leading-snug whitespace-nowrap tabular-nums text-muted max-md:text-xs">
           <span className="inline-flex shrink-0 items-baseline gap-1">
@@ -381,20 +501,56 @@ function StepTransport({
 
 function SourcePanel({ code, step }: { code: string, step: VmTraceStep }) {
   const lines = sourceWindow(code, step.sourceLine)
+  const listRef = useRef<HTMLOListElement>(null)
+  const [tokenOverlay, setTokenOverlay] = useState<TokenOverlayRect | null>(null)
+
+  const measureOverlay = useCallback(() => {
+    const next = listRef.current ? measureTokenOverlay(listRef.current, step) : null
+    setTokenOverlay(prev => (overlayRectsEqual(prev, next) ? prev : next))
+  }, [step])
+
+  useLayoutEffect(() => {
+    measureOverlay()
+    const listEl = listRef.current
+    if (!listEl) return
+
+    const observer = new ResizeObserver(() => measureOverlay())
+    observer.observe(listEl)
+    listEl.addEventListener('scroll', measureOverlay, { passive: true })
+    return () => {
+      observer.disconnect()
+      listEl.removeEventListener('scroll', measureOverlay)
+    }
+  }, [measureOverlay, code])
+
   return (
     <section className="flex min-w-0 flex-col overflow-hidden max-md:min-h-0">
       <h2 className={panelTitle}>code</h2>
-      <ol className="m-0 h-[calc(5*1.55rem)] min-h-[calc(5*1.55rem)] list-none overflow-hidden p-0 text-[0.84rem] leading-snug max-md:h-[calc(5*1.35rem)] max-md:min-h-[calc(5*1.35rem)] max-md:text-[0.78rem] max-md:leading-tight">
-        {lines.map(row => (
-          <li
-            key={row.number}
-            className={`${lineRow} ${row.number === step.sourceLine ? 'bg-highlight text-fg' : ''}`}
-          >
-            <span className="text-gutter">{String(row.number).padStart(2, '0')}</span>
-            <code className="block min-w-0 overflow-x-auto whitespace-pre">{row.line}</code>
-          </li>
-        ))}
+      <ol ref={listRef} className={sourceList}>
+        {lines.map(row => {
+          const isActiveLine = row.number === step.sourceLine
+          return (
+            <li key={row.number} className={sourceLineRow}>
+              {isActiveLine ? <div aria-hidden className={sourceLineHighlight} /> : null}
+              <span className={`${sourceGutter} ${isActiveLine ? 'text-fg' : ''}`}>{String(row.number).padStart(2, '0')}</span>
+              {renderSourceLine(row.line, row.number, step)}
+            </li>
+          )
+        })}
       </ol>
+      {tokenOverlay ? (
+        <div
+          aria-hidden
+          className={tokenOverlayClass}
+          data-token-overlay="source-active-token"
+          style={{
+            height: tokenOverlay.height,
+            left: tokenOverlay.left - 4,
+            top: tokenOverlay.top,
+            width: tokenOverlay.width + 8,
+          }}
+        />
+      ) : null}
     </section>
   )
 }
@@ -402,18 +558,19 @@ function SourcePanel({ code, step }: { code: string, step: VmTraceStep }) {
 function DirectivePanel({ result, step }: { result: InspectResult, step: VmTraceStep }) {
   const rows = directiveWindow(result.directives, step.pc)
   return (
-    <section className="flex min-w-0 flex-col overflow-hidden max-md:min-h-0">
+    <section className="flex min-w-0 max-w-[13rem] flex-col overflow-hidden max-md:max-w-none max-md:min-h-0">
       <h2 className={panelTitle}>directives</h2>
-      <ol className="m-0 h-[calc(6*1.55rem)] min-h-[calc(6*1.55rem)] list-none overflow-hidden p-0 text-[0.84rem] leading-snug max-md:h-[calc(5*1.35rem)] max-md:min-h-[calc(5*1.35rem)] max-md:text-[0.78rem] max-md:leading-tight">
-        {rows.map(row => (
-          <li
-            key={row.pc}
-            className={`${lineRow} ${row.pc === step.pc ? 'bg-highlight text-fg' : ''}`}
-          >
-            <span className="text-gutter">{String(row.pc).padStart(2, '0')}</span>
-            <code>{row.text}</code>
-          </li>
-        ))}
+      <ol className={directiveList}>
+        {rows.map(row => {
+          const isActive = row.pc === step.pc
+          return (
+            <li key={row.pc} className={directiveLineRow}>
+              {isActive ? <div aria-hidden className={directiveLineHighlight} /> : null}
+              <span className={`${directiveGutter} ${isActive ? 'text-fg' : ''}`}>{String(row.pc).padStart(2, '0')}</span>
+              <code className={`${directiveCodeClass} ${isActive ? 'text-fg' : ''}`}>{row.text}</code>
+            </li>
+          )
+        })}
       </ol>
     </section>
   )
@@ -421,25 +578,13 @@ function DirectivePanel({ result, step }: { result: InspectResult, step: VmTrace
 
 function StatePanel({ step }: { step: VmTraceStep }) {
   return (
-    <section className="mt-2 min-w-0 overflow-x-auto overflow-y-visible border-t border-line pt-3 max-md:mt-0 max-md:border-t-0 max-md:pt-0">
+    <section className="mt-2 min-w-0 overflow-x-hidden overflow-y-visible border-t border-line pt-3 max-md:mt-0 max-md:border-t-0 max-md:pt-0">
       <h2 className={panelTitle}>state</h2>
-      <table className="w-[41rem] max-w-full table-fixed border-collapse text-[0.84rem] leading-snug max-md:text-[0.8rem]">
+      <table className="w-auto max-w-full table-fixed border-collapse text-[0.84rem] leading-snug max-md:text-[0.8rem]">
         <colgroup>
-          <col className="w-44" />
-          <col className="w-60" />
-          <col className="w-60" />
+          <col className="w-44 max-md:w-36" />
+          <col className="w-56 max-md:w-44" />
         </colgroup>
-        <thead>
-          <tr>
-            <th scope="col" />
-            <th scope="col" className="px-2.5 py-2 text-left align-top text-[0.72rem] font-normal tracking-widest text-muted uppercase">
-              before
-            </th>
-            <th scope="col" className="px-2.5 py-2 text-left align-top text-[0.72rem] font-normal tracking-widest text-muted uppercase">
-              after
-            </th>
-          </tr>
-        </thead>
         <tbody>
           {stateFields.map(field => (
             <tr key={field.alias} className={`border-t border-line ${field.rowClass}`}>
@@ -447,9 +592,6 @@ function StatePanel({ step }: { step: VmTraceStep }) {
                 <span>{field.name}</span>
                 <span className="text-gutter"> ({field.alias})</span>
               </th>
-              <td className="overflow-hidden px-2.5 py-2 text-left align-top">
-                <code className={`${stateCell} ${field.codeClass}`}>{field.format(step.before)}</code>
-              </td>
               <td className="overflow-hidden px-2.5 py-2 text-left align-top">
                 <code className={`${stateCell} ${field.codeClass}`}>{field.format(step.after)}</code>
               </td>
@@ -461,13 +603,16 @@ function StatePanel({ step }: { step: VmTraceStep }) {
   )
 }
 
-function TokenPanel({ result }: { result: InspectResult }) {
+function TokenPanel({ result, step }: { result: InspectResult, step: VmTraceStep }) {
   return (
     <section className="mt-4 border-t border-line pt-4">
       <h2 className="m-0 mb-1.5 text-[0.65rem] font-normal tracking-[0.14em] text-muted uppercase">tokens</h2>
       <ol className="m-0 flex list-none flex-wrap gap-x-2 gap-y-1 p-0 text-[0.72rem] leading-snug">
         {result.tokens.map((token, index) => (
-          <li key={`${token.line}-${token.label}-${index}`} className="inline-flex items-center gap-1 text-fg">
+          <li
+            key={`${token.line}-${token.column}-${token.label}-${index}`}
+            className={`inline-flex items-center gap-1 rounded px-1 py-0.5 text-fg ${isActiveToken(step, token) ? 'bg-highlight' : ''}`}
+          >
             <span className="text-[0.68rem] text-gutter">{token.line}</span>
             <code className="text-muted">{token.label}</code>
             {token.value !== null ? <small className="text-[0.68rem] text-gutter">{String(token.value)}</small> : null}
@@ -571,7 +716,7 @@ export function ExecutionView() {
           setActiveProgram={setActiveProgram}
           setActiveStep={setActiveStep}
         />
-        <section className="grid grid-cols-2 items-start gap-5 max-md:grid-cols-2 max-md:gap-3">
+        <section className="grid grid-cols-[minmax(0,1fr)_minmax(9rem,13rem)] items-start gap-5 max-md:grid-cols-[minmax(0,1fr)_minmax(7rem,9rem)] max-md:gap-3">
           <SourcePanel code={program.code} step={step} />
           <DirectivePanel result={result} step={step} />
         </section>
@@ -587,11 +732,11 @@ export function ExecutionView() {
         />
       </section>
       <section
-        className="max-md:border-t max-md:border-line max-md:pt-6 max-md:pb-4"
+        className="max-md:border-t max-md:border-line max-md:pt-4 max-md:pb-2"
         aria-label="vm state and tokens"
       >
         <StatePanel step={step} />
-        <TokenPanel result={result} />
+        <TokenPanel result={result} step={step} />
       </section>
     </div>
   )

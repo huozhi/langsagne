@@ -7,6 +7,8 @@
   --color-muted: #6f6559;
   --color-gutter: #9a9084;
   --color-accent: #8b4a3a;
+  --color-code-token: #5c3829;
+  --color-code-token-fg: #f4efe6;
   --color-highlight: #e3dbd0;
   --color-line: rgb(31 28 24 / 8%);
   --font-mono: var(--font-departure-mono), ui-monospace, monospace;

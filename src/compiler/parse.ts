@@ -8,7 +8,7 @@ import { error } from '../error.ts'
 
 // Keep source-line debug metadata attached to each emitted directive.
 function emit(...items: Parameters<typeof VM.emit>) {
-  VM.mark(Source.line)
+  VM.mark(TokenState.startLine, TokenState.startColumn, TokenState.length)
   VM.emit(...items)
 }
 

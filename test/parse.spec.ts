@@ -178,7 +178,10 @@ result;`)
 
     const trace = VM.trace()
 
-    expect(trace.find(step => step.op === Directive.CONST)?.sourceLine).toBe(1)
+    const constStep = trace.find(step => step.op === Directive.CONST && step.operands[0] === 0)
+    expect(constStep?.sourceLine).toBe(1)
+    expect(constStep?.sourceColumn).toBe(5)
+    expect(constStep?.sourceLength).toBe(1)
     expect(trace.find(step => step.op === Directive.BZ)?.sourceLine).toBe(3)
     expect(trace.find(step => step.op === Directive.MUL)?.sourceLine).toBe(4)
   })

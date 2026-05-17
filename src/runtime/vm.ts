@@ -11,11 +11,19 @@ type VmSnapshot = {
   env: Record<string, RuntimeValue>
 }
 
+export type SourceSite = {
+  line: number
+  column: number
+  length: number
+}
+
 export type VmTraceStep = {
   pc: number
   op: DirectiveItem
   operands: DirectiveItem[]
   sourceLine: number | null
+  sourceColumn: number | null
+  sourceLength: number | null
   before: VmSnapshot
   after: VmSnapshot
 }
@@ -121,16 +129,16 @@ function execute(text: DirectiveItem[], shouldTrace: boolean) {
       }
     }
     else if (op === Directive.ASSERT) {
-      if (!Store.ax) error('RUNTIME', 'assert failed', directiveLines.get(pc) ?? null)
+      if (!Store.ax) error('RUNTIME', 'assert failed', directiveSites.get(pc)?.line ?? null)
     }
     else if (op === Directive.CLOCK) { Store.ax = Date.now() }
     else if (op === Directive.CALL) {
       // CALL stores two operands after the directive: function name and arg count.
       const name = String(text[Store.pc++])
       const argc = Number(text[Store.pc++])
-      const fn = Store.fns.get(name) ?? error('RUNTIME', `unknown function ${name}`, directiveLines.get(pc) ?? null)
+      const fn = Store.fns.get(name) ?? error('RUNTIME', `unknown function ${name}`, directiveSites.get(pc)?.line ?? null)
       if (argc !== fn.params.length) {
-        error('RUNTIME', `${name} expected ${fn.params.length} args but got ${argc}`, directiveLines.get(pc) ?? null)
+        error('RUNTIME', `${name} expected ${fn.params.length} args but got ${argc}`, directiveSites.get(pc)?.line ?? null)
       }
 
       // Args were pushed left-to-right, so pop them right-to-left into params.
@@ -146,25 +154,39 @@ function execute(text: DirectiveItem[], shouldTrace: boolean) {
       Store.pc = fn.entry
     }
     else if (op === Directive.RET) {
-      const frame = Store.cs.pop() ?? error('RUNTIME', 'RET without call frame', directiveLines.get(pc) ?? null)
+      const frame = Store.cs.pop() ?? error('RUNTIME', 'RET without call frame', directiveSites.get(pc)?.line ?? null)
       Store.pc = frame.ret
     }
     else if (op === Directive.EXIT) {
-      if (shouldTrace) trace.push({ pc, op, operands, sourceLine: directiveLines.get(pc) ?? null, before, after: snapshot() })
+      if (shouldTrace) trace.push(traceStep(pc, op, operands, before))
       break
     }
     else {
       break
     }
 
-    if (shouldTrace) trace.push({ pc, op, operands, sourceLine: directiveLines.get(pc) ?? null, before, after: snapshot() })
+    if (shouldTrace) trace.push(traceStep(pc, op, operands, before))
   }
 
   return trace
 }
 
 let directiveItems: DirectiveItem[] = []
-let directiveLines = new Map<number, number>()
+let directiveSites = new Map<number, SourceSite>()
+
+function traceStep(pc: number, op: DirectiveItem, operands: DirectiveItem[], before: VmSnapshot): VmTraceStep {
+  const site = directiveSites.get(pc) ?? null
+  return {
+    pc,
+    op,
+    operands,
+    sourceLine: site?.line ?? null,
+    sourceColumn: site?.column ?? null,
+    sourceLength: site?.length ?? null,
+    before,
+    after: snapshot(),
+  }
+}
 
 export const VM = {
   directives: () => Object.freeze(directiveItems),
@@ -174,10 +196,12 @@ export const VM = {
   patch: (index: number, value: DirectiveItem) => { directiveItems[index] = value },
   pop: () => directiveItems.pop(),
   position: () => directiveItems.length,
-  mark: (line: number) => { directiveLines.set(directiveItems.length, line) },
+  mark: (line: number, column: number, length: number) => {
+    directiveSites.set(directiveItems.length, { line, column, length })
+  },
   registerFn: (name: string, params: string[], entry: number) => {
     Store.fns.set(name, { entry, params })
   },
-  reset: () => { directiveItems = []; directiveLines = new Map() },
+  reset: () => { directiveItems = []; directiveSites = new Map() },
   trace: () => execute(directiveItems, true),
 }

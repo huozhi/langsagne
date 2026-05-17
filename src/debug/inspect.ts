@@ -10,6 +10,8 @@ export type InspectToken = {
   label: string
   value: string | number | null
   line: number
+  column: number
+  length: number
 }
 
 export type InspectResult = {
@@ -31,13 +33,14 @@ function scanTokens(code: string) {
   const tokens: InspectToken[] = []
 
   while (!Source.eof()) {
-    const line = Source.line
     const state = next()
     if (state.token !== null) {
       tokens.push({
         label: tokenLabel(state.token),
         value: state.value,
-        line,
+        line: state.startLine,
+        column: state.startColumn,
+        length: state.length,
       })
     }
   }
