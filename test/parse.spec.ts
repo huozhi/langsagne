@@ -55,4 +55,20 @@ describe('parser', () => {
       Directive.PRINT,
     ])
   })
+
+  it('emits branch directives for while loops with expression bodies', () => {
+    const {
+      constants: { Directive },
+      VM,
+    } = compile(readFile('../fixture/weighted-loop'))
+
+    const directives = VM.directives()
+
+    expect(directives).toContain(Directive.BZ)
+    expect(directives).toContain(Directive.JMP)
+    expect(directives).toContain(Directive.MUL)
+    expect(directives.at(-3)).toBe(Directive.LOAD)
+    expect(directives.at(-2)).toBe('i')
+    expect(directives.at(-1)).toBe(Directive.ADD)
+  })
 })

@@ -1,0 +1,3 @@
+base = 2 * (3 + 4);
+offset = (base - 5) * (1 + 2);
+offset + base;

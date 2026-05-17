@@ -10,6 +10,9 @@ const defaultFixtures = [
   'fixture/expression',
   'fixture/assignment',
   'fixture/loop',
+  'fixture/complex-expression',
+  'fixture/weighted-loop',
+  'fixture/print-flow',
 ]
 
 const args = process.argv.slice(2)

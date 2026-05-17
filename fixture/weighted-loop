@@ -1,0 +1,7 @@
+i = 0;
+sum = 0;
+while (i < 4) {
+  sum = sum + i * 2;
+  i = i + 1;
+}
+sum + i;
