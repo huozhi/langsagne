@@ -18,7 +18,7 @@ function setToken(token: string | number, value: string | number | null = null) 
 export function next() {
   while (!Source.eof()) {
     const ch = Source.read()
-    // console.log('ch [', ch, ']')
+
     if (isDigit(ch)) {
       let value = (+ch)
       while (isDigit(Source.val)) {
@@ -30,10 +30,8 @@ export function next() {
     } else if (isAlpha(ch) || ch === '_') {
       let ident = ch
       while (isAlpha(Source.val) || Source.val === '_' || isDigit(Source.val)) {
-        // console.log('isAlpha', Source.val, isAlpha(Source.val))
         ident += Source.read()
       }
-      // console.log('ident', ident, TokenState.token, TokenKind.While)
       if (ident === 'while') setToken(TokenKind.While)
       else if (ident === 'if') setToken(TokenKind.If)
       else if (ident === 'else') setToken(TokenKind.Else)

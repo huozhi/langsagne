@@ -6,18 +6,17 @@ import { Directive } from '../runtime/directive.ts'
 import { VM } from '../runtime/vm.ts'
 import { error } from '../error.ts'
 
+// Keep source-line debug metadata attached to each emitted directive.
 function emit(...items: Parameters<typeof VM.emit>) {
   VM.mark(Source.line)
   VM.emit(...items)
 }
 
-function consume(expected: string | number) {
+function expect(expected: string | number) {
   if (TokenState.token !== expected) {
     const actual = typeof TokenState.token === 'number' ? TokenKind.label(TokenState.token) : TokenState.token
     error('PARSE', `expected ${expected} but get ${actual}`)
   }
-
-  next()
 }
 
 function token() {
@@ -39,7 +38,7 @@ function token() {
 // program    : [statement ';']
 
 function param() {
-  if (TokenState.token !== TokenKind.Identifier) error('PARSE', 'expected parameter name')
+  expect(TokenKind.Identifier)
   const name = String(TokenState.value)
   next()
   return name
@@ -48,7 +47,8 @@ function param() {
 function paramList() {
   const params: string[] = []
 
-  consume('(')
+  expect('(')
+  next()
   if (TokenState.token !== ')') {
     params.push(param())
 
@@ -57,7 +57,8 @@ function paramList() {
       params.push(param())
     }
   }
-  consume(')')
+  expect(')')
+  next()
 
   return params
 }
@@ -65,7 +66,8 @@ function paramList() {
 function argList() {
   let argc = 0
 
-  consume('(')
+  expect('(')
+  next()
   if (TokenState.token !== ')') {
     expr(TokenKind.Assign)
     argc += 1
@@ -77,7 +79,8 @@ function argList() {
       argc += 1
     }
   }
-  consume(')')
+  expect(')')
+  next()
 
   if (argc > 0) {
     emit(Directive.PUSH)
@@ -87,7 +90,8 @@ function argList() {
 }
 
 function fnDecl() {
-  consume(TokenKind.Function)
+  expect(TokenKind.Function)
+  next()
   if (TokenState.token !== TokenKind.Identifier) error('PARSE', 'expected function name')
   const name = String(TokenState.value)
   next()
@@ -109,12 +113,37 @@ function fnDecl() {
 function statement() {
   if (!TokenState.token && !Source.eof()) next()
 
-  if (!Source.eof() && TokenState.token === TokenKind.While) {
+  if (!Source.eof() && TokenState.token === TokenKind.If) {
     next()
-    consume('(')
+    expect('(')
+    next()
+    expr(TokenKind.Assign)
+    expect(')')
+    next()
+    emit(Directive.BZ)
+    const elseTarget = VM.position()
+    emit(null)
+    block()
+
+    if (TokenState.token === TokenKind.Else) {
+      emit(Directive.JMP)
+      const endTarget = VM.position()
+      emit(null)
+      VM.patch(elseTarget, VM.position())
+      next()
+      block()
+      VM.patch(endTarget, VM.position())
+    } else {
+      VM.patch(elseTarget, VM.position())
+    }
+  } else if (!Source.eof() && TokenState.token === TokenKind.While) {
+    next()
+    expect('(')
+    next()
     const loopStart = VM.position()
     expr(TokenKind.Assign)
-    consume(')')
+    expect(')')
+    next()
     emit(Directive.BZ)
     const exitTarget = VM.position()
     emit(null)
@@ -139,11 +168,13 @@ function statement() {
 }
 
 function block() {
-  consume('{')
+  expect('{')
+  next()
   while (!Source.eof() && TokenState.token !== '}') {
     statement()
   }
-  consume('}')
+  expect('}')
+  next()
 }
 
 function expr(level = 0) {
@@ -154,17 +185,21 @@ function expr(level = 0) {
     emit(Directive.CONST, TokenState.value)
     next()
   } else if (TokenState.token === '(') {
-    consume('(')
+    expect('(')
+    next()
     expr(TokenKind.Assign)
-    consume(')')
+    expect(')')
+    next()
   } else if (TokenState.token === TokenKind.Identifier) {
     const ident = String(TokenState.value)
     next() // Ident
     if ((TokenState.token as string | number | null) === '(') {
       if (ident === 'print') {
-        consume('(')
+        expect('(')
+        next()
         expr(TokenKind.Assign)
-        consume(')')
+        expect(')')
+        next()
         emit(Directive.PRINT)
       } else {
         const argc = argList()

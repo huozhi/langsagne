@@ -78,6 +78,27 @@ describe('parser', () => {
     expect(directives.at(-1)).toBe(Directive.ADD)
   })
 
+  it('emits branch directives for if else blocks', () => {
+    const {
+      constants: { Directive },
+      VM,
+    } = compile(`value = 0;
+if (value) {
+  result = 1;
+} else {
+  result = 2;
+}
+result;`)
+
+    const directives = VM.directives()
+
+    expect(directives).toContain(Directive.BZ)
+    expect(directives).toContain(Directive.JMP)
+    expect(directives).toContain(Directive.STORE)
+    expect(directives.at(-2)).toBe(Directive.LOAD)
+    expect(directives.at(-1)).toBe('result')
+  })
+
   it('emits call and return directives for functions', () => {
     const {
       constants: { Directive },

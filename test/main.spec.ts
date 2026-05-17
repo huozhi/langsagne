@@ -72,6 +72,24 @@ describe('language execution', () => {
     expect(Store.env.get('result')).toBe(11)
   })
 
+  it('executes if and else branches', () => {
+    expect(execute(`value = 0;
+if (value) {
+  result = 1;
+} else {
+  result = 2;
+}
+result;`)).toBe(2)
+
+    expect(execute(`value = 1;
+if (value) {
+  result = 1;
+} else {
+  result = 2;
+}
+result;`)).toBe(1)
+  })
+
   it('executes a function call through the public API', () => {
     const result = execute(`fn add(a, b) {
   return a + b;
@@ -79,6 +97,13 @@ describe('language execution', () => {
 add(1, 2);`)
 
     expect(result).toBe(3)
+  })
+
+  it('rejects function calls with the wrong arity', () => {
+    expect(() => execute(`fn add(a, b) {
+  return a + b;
+}
+add(1);`)).toThrow('RUNTIME ERR: add expected 2 args but got 1')
   })
 
   it('exposes a single public execute API', () => {

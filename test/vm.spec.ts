@@ -95,6 +95,35 @@ describe('vm', () => {
     expect(Store.cs).toEqual([])
   })
 
+  it('checks call arity', () => {
+    const {
+      constants: { Directive },
+      VM,
+    } = runtime('')
+
+    VM.emit(Directive.JMP)
+    const mainTarget = VM.position()
+    VM.emit(null)
+
+    VM.registerFn('add', ['a', 'b'], VM.position())
+    VM.emitAll([
+      Directive.RET,
+    ])
+
+    VM.patch(mainTarget, VM.position())
+    VM.emitAll([
+      Directive.CONST,
+      1,
+      Directive.PUSH,
+      Directive.CALL,
+      'add',
+      1,
+      Directive.EXIT,
+    ])
+
+    expect(() => VM.execute()).toThrow('RUNTIME ERR: add expected 2 args but got 1')
+  })
+
   it('executes branch and jump directives', () => {
     const {
       constants: { Directive },

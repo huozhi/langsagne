@@ -116,6 +116,9 @@ function execute(text: DirectiveItem[], shouldTrace: boolean) {
       const name = String(text[Store.pc++])
       const argc = Number(text[Store.pc++])
       const fn = Store.fns.get(name) ?? error('RUNTIME', `unknown function ${name}`)
+      if (argc !== fn.params.length) {
+        error('RUNTIME', `${name} expected ${fn.params.length} args but got ${argc}`)
+      }
 
       // Args were pushed left-to-right, so pop them right-to-left into params.
       const locals = new Map<string, RuntimeValue>()
@@ -123,11 +126,6 @@ function execute(text: DirectiveItem[], shouldTrace: boolean) {
         const param = fn.params[index]
         const value = Store.vs.pop()
         locals.set(param, value)
-      }
-
-      // Drop any extra supplied args for now; arity checks can be added later.
-      for (let index = 0; index < argc - fn.params.length; index += 1) {
-        Store.vs.pop()
       }
 
       // Save the next instruction as ret, then jump into the function body.
