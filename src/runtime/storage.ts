@@ -1,18 +1,22 @@
-export const Store: {
-  ax: any
+export type RuntimeValue = string | number | null | undefined
+
+type StoreState = {
+  ax: RuntimeValue
   pc: number
-  vs: any[]
-  env: Map<string, any>
+  vs: RuntimeValue[]
+  env: Map<string, RuntimeValue>
   reset: () => void
-} = {
+}
+
+export const Store: StoreState = {
   ax: 0, // accumulator
   pc: 0, // program counter
   vs: [], // value stack
   env: new Map(), // runtime environment: name -> value
   reset() {
-    Store.ax = 0
-    Store.pc = 0
-    Store.vs = []
-    Store.env = new Map()
+    this.ax = 0
+    this.pc = 0
+    this.vs = []
+    this.env = new Map()
   },
 }

@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'bun:test'
-import { freshRuntime } from './helpers.ts'
+import { runtime } from './helpers.ts'
 
 describe('vm', () => {
   it('loads and executes arithmetic bytecode', () => {
     const {
-      constants: { OpCode },
-      storage: { Store },
+      constants: { Directive },
+      Store,
       VM,
-    } = freshRuntime()
+    } = runtime('')
 
-    VM.load([
-      OpCode.CONST,
+    VM.emitAll([
+      Directive.CONST,
       3,
-      OpCode.PUSH,
-      OpCode.CONST,
+      Directive.PUSH,
+      Directive.CONST,
       20,
-      OpCode.ADD,
-      OpCode.EXIT,
+      Directive.ADD,
+      Directive.EXIT,
     ])
     VM.execute()
 
@@ -25,28 +25,28 @@ describe('vm', () => {
 
   it('records execution trace steps', () => {
     const {
-      constants: { OpCode },
+      constants: { Directive },
       VM,
-    } = freshRuntime()
+    } = runtime('')
 
-    VM.load([
-      OpCode.CONST,
+    VM.emitAll([
+      Directive.CONST,
       1,
-      OpCode.PUSH,
-      OpCode.CONST,
+      Directive.PUSH,
+      Directive.CONST,
       2,
-      OpCode.ADD,
-      OpCode.EXIT,
+      Directive.ADD,
+      Directive.EXIT,
     ])
 
-    const trace = VM.execute({ trace: true })
+    const trace = VM.trace()
 
     expect(trace.map(step => step.op)).toEqual([
-      OpCode.CONST,
-      OpCode.PUSH,
-      OpCode.CONST,
-      OpCode.ADD,
-      OpCode.EXIT,
+      Directive.CONST,
+      Directive.PUSH,
+      Directive.CONST,
+      Directive.ADD,
+      Directive.EXIT,
     ])
     expect(trace.at(-1)?.after.ax).toBe(3)
     expect(trace.at(-1)?.after.vs).toEqual([])
@@ -54,23 +54,23 @@ describe('vm', () => {
 
   it('executes branch and jump directives', () => {
     const {
-      constants: { OpCode },
-      storage: { Store },
+      constants: { Directive },
+      Store,
       VM,
-    } = freshRuntime()
+    } = runtime('')
 
-    VM.load([
-      OpCode.CONST,
+    VM.emitAll([
+      Directive.CONST,
       0,
-      OpCode.BZ,
+      Directive.BZ,
       8,
-      OpCode.CONST,
+      Directive.CONST,
       99,
-      OpCode.JMP,
+      Directive.JMP,
       10,
-      OpCode.CONST,
+      Directive.CONST,
       42,
-      OpCode.EXIT,
+      Directive.EXIT,
     ])
     VM.execute()
 

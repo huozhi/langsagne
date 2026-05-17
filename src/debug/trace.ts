@@ -1,16 +1,17 @@
-import type { VmTraceStep } from '../runtime/vm.ts'
+import type { DirectiveItem, VmTraceStep } from '../runtime/vm.ts'
+import type { RuntimeValue } from '../runtime/storage.ts'
 
-function valueText(value: any) {
+function valueText(value: RuntimeValue) {
   if (value === undefined) return 'undefined'
   return JSON.stringify(value)
 }
 
-function stackText(values: any[]) {
+function stackText(values: RuntimeValue[]) {
   if (values.length === 0) return '[]'
   return `[${values.map(valueText).join(', ')}]`
 }
 
-function envText(env: Record<string, any>) {
+function envText(env: Record<string, RuntimeValue>) {
   const entries = Object.entries(env)
   if (entries.length === 0) return '{}'
   return `{ ${entries.map(([key, value]) => `${key}: ${valueText(value)}`).join(', ')} }`
@@ -20,16 +21,16 @@ function directiveText(step: VmTraceStep) {
   return [step.op, ...step.operands].map(String).join(' ')
 }
 
-function renderDirectives(emitted: any[], activePc?: number) {
+function renderDirectives(directives: readonly DirectiveItem[], activePc: number | null) {
   const lines: string[] = []
 
-  for (let i = 0; i < emitted.length; i++) {
+  for (let i = 0; i < directives.length; i++) {
     const pc = i
-    const op = emitted[i]
+    const op = directives[i]
     const marker = pc === activePc ? '->' : '  '
 
     if (op === 'CONST' || op === 'LOAD' || op === 'STORE' || op === 'JMP' || op === 'BZ') {
-      lines.push(`${marker} ${String(pc).padStart(2, '0')}: ${op} ${emitted[++i]}`)
+      lines.push(`${marker} ${String(pc).padStart(2, '0')}: ${op} ${directives[++i]}`)
     } else {
       lines.push(`${marker} ${String(pc).padStart(2, '0')}: ${op}`)
     }
@@ -38,7 +39,7 @@ function renderDirectives(emitted: any[], activePc?: number) {
   return lines
 }
 
-export function renderTrace(programName: string, source: string, emitted: any[], trace: VmTraceStep[]) {
+export function renderTrace(programName: string, source: string, directives: readonly DirectiveItem[], trace: VmTraceStep[]) {
   const lines: string[] = []
 
   lines.push(`+${'-'.repeat(70)}+`)
@@ -51,7 +52,7 @@ export function renderTrace(programName: string, source: string, emitted: any[],
   lines.push('')
   lines.push('directives')
   lines.push('----------')
-  lines.push(...renderDirectives(emitted))
+  lines.push(...renderDirectives(directives, null))
 
   lines.push('')
   lines.push('execution')
@@ -79,7 +80,7 @@ export function renderTrace(programName: string, source: string, emitted: any[],
 export function renderTraceFrame(
   programName: string,
   source: string,
-  emitted: any[],
+  directives: readonly DirectiveItem[],
   trace: VmTraceStep[],
   stepIndex: number,
 ) {
@@ -97,7 +98,7 @@ export function renderTraceFrame(
   lines.push('')
   lines.push('directives')
   lines.push('----------')
-  lines.push(...renderDirectives(emitted, step.pc))
+  lines.push(...renderDirectives(directives, step.pc))
   lines.push('')
   lines.push('state change')
   lines.push('------------')

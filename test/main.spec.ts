@@ -5,28 +5,43 @@ import { readFile } from './utils.ts'
 
 describe('language execution', () => {
   it('executes the assignment fixture', () => {
-    const { storage, VM } = compile(readFile('../fixture/assignment'))
+    const { Store, VM } = compile(readFile('../fixture/assignment'))
 
     VM.execute()
 
-    expect(storage.Store.ax).toBe(3)
-    expect(storage.Store.env.get('a')).toBe(1)
-    expect(storage.Store.env.get('b')).toBe(3)
+    expect(Store.ax).toBe(3)
+    expect(Store.env.get('a')).toBe(1)
+    expect(Store.env.get('b')).toBe(3)
   })
 
   it('executes the loop fixture', () => {
-    const { storage, VM } = compile(readFile('../fixture/loop'))
+    const { Store, VM } = compile(readFile('../fixture/loop'))
 
     VM.execute()
 
-    expect(storage.Store.ax).toBe(1)
-    expect(storage.Store.env.get('i')).toBe(2)
-    expect(storage.Store.env.get('sum')).toBe(1)
+    expect(Store.ax).toBe(1)
+    expect(Store.env.get('i')).toBe(2)
+    expect(Store.env.get('sum')).toBe(1)
   })
 
   it('exposes a single public execute API', () => {
     const result = execute('a = 1; b = a + 2; b;')
 
     expect(result).toBe(3)
+  })
+
+  it('prints a value and returns it from execute', () => {
+    const logs: unknown[][] = []
+    const originalLog = console.log
+    console.log = (...values: unknown[]) => { logs.push(values) }
+
+    try {
+      const result = execute('print(1 + 2);')
+
+      expect(result).toBe(3)
+      expect(logs).toEqual([[3]])
+    } finally {
+      console.log = originalLog
+    }
   })
 })

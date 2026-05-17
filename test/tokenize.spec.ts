@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { freshRuntime } from './helpers.ts'
+import { runtime } from './helpers.ts'
 
 describe('tokenizer', () => {
   it('recognizes keywords, identifiers, operators, and numbers', () => {
@@ -7,9 +7,8 @@ describe('tokenizer', () => {
       constants: { TokenKind },
       next,
       Source,
-      SymbolTable,
       TokenState,
-    } = freshRuntime()
+    } = runtime('')
 
     Source.initialize('while (count_1 < 42) {}')
 
@@ -23,10 +22,6 @@ describe('tokenizer', () => {
     next()
     expect(TokenState.token).toBe(TokenKind.Identifier)
     expect(TokenState.value).toBe('count_1')
-    expect(SymbolTable.find('count_1')).toMatchObject({
-      class: TokenKind.Global,
-      type: TokenKind.Identifier,
-    })
 
     next()
     expect(TokenState.token).toBe(TokenKind.LessThan)
@@ -43,7 +38,7 @@ describe('tokenizer', () => {
       next,
       Source,
       TokenState,
-    } = freshRuntime()
+    } = runtime('')
 
     Source.initialize('fn add() { return 1; }')
 

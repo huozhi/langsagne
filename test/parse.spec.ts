@@ -5,37 +5,54 @@ import { readFile } from './utils.ts'
 describe('parser', () => {
   it('emits VM code using arithmetic precedence and parentheses', () => {
     const {
-      constants: { OpCode },
+      constants: { Directive },
       VM,
     } = compile(readFile('../fixture/expression'))
 
-    expect(VM.emitted).toEqual([
-      OpCode.CONST,
+    expect(VM.directives()).toEqual([
+      Directive.CONST,
       2,
-      OpCode.PUSH,
-      OpCode.CONST,
+      Directive.PUSH,
+      Directive.CONST,
       3,
-      OpCode.PUSH,
-      OpCode.CONST,
+      Directive.PUSH,
+      Directive.CONST,
       1,
-      OpCode.ADD,
-      OpCode.MUL,
+      Directive.ADD,
+      Directive.MUL,
     ])
   })
 
   it('emits store and load instructions for assignment expressions', () => {
     const {
-      constants: { OpCode },
+      constants: { Directive },
       VM,
     } = compile('a = 1; a;')
 
-    expect(VM.emitted).toEqual([
-      OpCode.CONST,
+    expect(VM.directives()).toEqual([
+      Directive.CONST,
       1,
-      OpCode.STORE,
+      Directive.STORE,
       'a',
-      OpCode.LOAD,
+      Directive.LOAD,
       'a',
+    ])
+  })
+
+  it('emits a print directive for the minimal system call', () => {
+    const {
+      constants: { Directive },
+      VM,
+    } = compile('print(1 + 2);')
+
+    expect(VM.directives()).toEqual([
+      Directive.CONST,
+      1,
+      Directive.PUSH,
+      Directive.CONST,
+      2,
+      Directive.ADD,
+      Directive.PRINT,
     ])
   })
 })

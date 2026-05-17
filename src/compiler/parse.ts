@@ -2,10 +2,10 @@ import { Source } from '../lexer/source.ts'
 import { TokenState } from '../lexer/token-state.ts'
 import { TokenKind } from '../lexer/token-kind.ts'
 import { next } from '../lexer/tokenize.ts'
-import { OpCode } from '../runtime/op-code.ts'
-import { emitted } from '../runtime/vm.ts'
+import { Directive } from '../runtime/directive.ts'
+import { VM } from '../runtime/vm.ts'
 
-const error = (message = '') => { throw new Error('PARSE ERR: ' + message) }
+const error = (message: string) => { throw new Error('PARSE ERR: ' + message) }
 
 function consume(expected: string | number) {
   if (TokenState.token !== expected) {
@@ -32,23 +32,22 @@ function statement() {
   if (!Source.eof() && TokenState.token === TokenKind.While) {
     next()
     consume('(')
-    const loopStart = emitted.length
+    const loopStart = VM.position()
     expr(TokenKind.Assign)
     consume(')')
-    emitted.push(OpCode.BZ)
-    const exitTarget = emitted.length
-    emitted.push(null)
+    VM.emit(Directive.BZ)
+    const exitTarget = VM.position()
+    VM.emit(null)
     block()
-    emitted.push(OpCode.JMP)
-    emitted.push(loopStart)
-    emitted[exitTarget] = emitted.length
+    VM.emit(Directive.JMP, loopStart)
+    VM.patch(exitTarget, VM.position())
   } else if (TokenState.token === '{') {
     block()
   } else if (TokenState.token === ';') {
     next() // // empty statement
   } else {
     expr(TokenKind.Assign)
-    if (TokenState.token === ';') { next(';') } else { error(`expected ; but get ${TokenKind.label(TokenState.token as number)}`) }
+    if (TokenState.token === ';') { next() } else { error(`expected ; but get ${TokenKind.label(TokenState.token as number)}`) }
   }
 }
 
@@ -65,40 +64,46 @@ function expr(level = 0) {
   // console.log('Source.val', Source.val)
   if (TokenState.token === TokenKind.Number) {
     // console.log('push value', TokenState.value)
-    emitted.push(OpCode.CONST)
-    emitted.push(TokenState.value)
+    VM.emit(Directive.CONST, TokenState.value)
     next()
   } else if (TokenState.token === '(') {
     consume('(')
     expr(TokenKind.Assign)
     consume(')')
   } else if (TokenState.token === TokenKind.Identifier) {
-    const ident = TokenState.value
+    const ident = String(TokenState.value)
     next() // Ident
-    emitted.push(OpCode.LOAD)
-    emitted.push(ident)
+    if ((TokenState.token as string | number | null) === '(') {
+      if (ident !== 'print') error(`unsupported call ${ident}`)
+
+      consume('(')
+      expr(TokenKind.Assign)
+      consume(')')
+      VM.emit(Directive.PRINT)
+    } else {
+      VM.emit(Directive.LOAD, ident)
+    }
   }
 
   while ((TokenState.token as number) >= level) {
     // console.log('level', level)
-    if (TokenState.token === TokenKind.Add) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply); emitted.push(OpCode.ADD) }
-    else if (TokenState.token === TokenKind.Subtract) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply); emitted.push(OpCode.SUB) }
-    else if (TokenState.token === TokenKind.Multiply) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply + 1); emitted.push(OpCode.MUL) }
-    else if (TokenState.token === TokenKind.Divide) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Multiply + 1); emitted.push(OpCode.DIV) }
-    else if (TokenState.token === TokenKind.LessThan) { next(); emitted.push(OpCode.PUSH); expr(TokenKind.Add); emitted.push(OpCode.LT) }
+    if (TokenState.token === TokenKind.Add) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Multiply); VM.emit(Directive.ADD) }
+    else if (TokenState.token === TokenKind.Subtract) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Multiply); VM.emit(Directive.SUB) }
+    else if (TokenState.token === TokenKind.Multiply) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Multiply + 1); VM.emit(Directive.MUL) }
+    else if (TokenState.token === TokenKind.Divide) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Multiply + 1); VM.emit(Directive.DIV) }
+    else if (TokenState.token === TokenKind.LessThan) { next(); VM.emit(Directive.PUSH); expr(TokenKind.Add); VM.emit(Directive.LT) }
     else if (TokenState.token === ';') {
-      next(';')
+      next()
     }
     else if (TokenState.token === TokenKind.Assign) {
-      next('=')
-      const target = emitted.pop()
-      const load = emitted.pop()
-      if (load !== OpCode.LOAD || typeof target !== 'string') {
+      next()
+      const target = VM.pop()
+      const load = VM.pop()
+      if (load !== Directive.LOAD || typeof target !== 'string') {
         error('bad lvalue in assignment')
       }
       expr(TokenKind.Assign)
-      emitted.push(OpCode.STORE)
-      emitted.push(target)
+      VM.emit(Directive.STORE, target)
     }
 
     else { error('parsing fail ' + TokenState.token) }

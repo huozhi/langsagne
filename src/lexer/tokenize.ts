@@ -1,5 +1,4 @@
 import { Source } from './source.ts'
-import { SymbolTable } from './symbol-table.ts'
 import { TokenState } from './token-state.ts'
 import { TokenKind } from './token-kind.ts'
 
@@ -16,7 +15,7 @@ function setToken(token: string | number, value: string | number | null = null) 
   TokenState.value = value
 }
 
-export function next(_expected?: string | number) {
+export function next() {
   while (!Source.eof()) {
     const ch = Source.read()
     // console.log('ch [', ch, ']')
@@ -27,7 +26,7 @@ export function next(_expected?: string | number) {
       }
       setToken(TokenKind.Number, value)
 
-      return
+      return TokenState
     } else if (isAlpha(ch) || ch === '_') {
       let ident = ch
       while (isAlpha(Source.val) || Source.val === '_' || isDigit(Source.val)) {
@@ -42,17 +41,17 @@ export function next(_expected?: string | number) {
       else if (ident === 'return') setToken(TokenKind.Return)
       else {
         setToken(TokenKind.Identifier, ident)
-
-        SymbolTable.insert(ident, {type: TokenKind.Identifier, class: TokenKind.Global})
       }
-      return
+      return TokenState
     }
-    else if (ch === '+') { setToken(TokenKind.Add); return }
-    else if (ch === '-') { setToken(TokenKind.Subtract); return }
-    else if (ch === '*') { setToken(TokenKind.Multiply); return }
-    else if (ch === '/') { setToken(TokenKind.Divide); return }
-    else if (ch === '=') { setToken(TokenKind.Assign); return }
-    else if (ch === '<') { setToken(TokenKind.LessThan); return }
-    else if (ch === '(' || ch === ')' || ch === '{' || ch === '}' || ch === ';') { setToken(ch); return }
+    else if (ch === '+') { setToken(TokenKind.Add); return TokenState }
+    else if (ch === '-') { setToken(TokenKind.Subtract); return TokenState }
+    else if (ch === '*') { setToken(TokenKind.Multiply); return TokenState }
+    else if (ch === '/') { setToken(TokenKind.Divide); return TokenState }
+    else if (ch === '=') { setToken(TokenKind.Assign); return TokenState }
+    else if (ch === '<') { setToken(TokenKind.LessThan); return TokenState }
+    else if (ch === '(' || ch === ')' || ch === '{' || ch === '}' || ch === ';') { setToken(ch); return TokenState }
   }
+
+  return TokenState
 }

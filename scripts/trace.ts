@@ -24,10 +24,10 @@ function compileFixture(target: string) {
   resetRuntime(source)
   Source.initialize(source)
   parse()
-  const trace = VM.execute({ trace: true })
-  const emitted = [...VM.emitted]
+  const trace = VM.trace()
+  const directives = VM.directives()
 
-  return { emitted, source, target, trace }
+  return { directives, source, target, trace }
 }
 
 function clearScreen() {
@@ -50,7 +50,7 @@ async function waitForKey() {
 }
 
 async function renderInteractive(target: string) {
-  const { emitted, source, trace } = compileFixture(target)
+  const { directives, source, trace } = compileFixture(target)
   let step = 0
 
   if (process.stdin.isTTY) {
@@ -60,7 +60,7 @@ async function renderInteractive(target: string) {
 
   while (true) {
     clearScreen()
-    console.log(renderTraceFrame(target, source, emitted, trace, step))
+    console.log(renderTraceFrame(target, source, directives, trace, step))
 
     const action = await waitForKey()
     if (action === 'quit') break
@@ -79,9 +79,9 @@ if (stepMode) {
   await renderInteractive(targets[0])
 } else {
   for (const [index, target] of targets.entries()) {
-    const { emitted, source, trace } = compileFixture(target)
+    const { directives, source, trace } = compileFixture(target)
 
     if (index > 0) console.log('\n')
-    console.log(renderTrace(target, source, emitted, trace))
+    console.log(renderTrace(target, source, directives, trace))
   }
 }
