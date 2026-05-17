@@ -1,0 +1,3 @@
+content = load("fixture/assignment");
+print(content);
+content;

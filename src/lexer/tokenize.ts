@@ -27,6 +27,15 @@ export function next() {
       setToken(TokenKind.Number, value)
 
       return TokenState
+    } else if (ch === '"' || ch === "'") {
+      let value = ''
+      while (!Source.eof() && Source.val !== ch) {
+        value += Source.read()
+      }
+      Source.read()
+      setToken(TokenKind.String, value)
+
+      return TokenState
     } else if (isAlpha(ch) || ch === '_') {
       let ident = ch
       while (isAlpha(Source.val) || Source.val === '_' || isDigit(Source.val)) {

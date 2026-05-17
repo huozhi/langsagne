@@ -52,6 +52,80 @@ describe('vm', () => {
     expect(trace.at(-1)?.after.vs).toEqual([])
   })
 
+  it('executes assert directives', () => {
+    const {
+      constants: { Directive },
+      Store,
+      VM,
+    } = runtime('')
+
+    VM.emitAll([
+      Directive.CONST,
+      1,
+      Directive.ASSERT,
+      Directive.EXIT,
+    ])
+    VM.execute()
+
+    expect(Store.ax).toBe(1)
+  })
+
+  it('executes clock directives', () => {
+    const {
+      constants: { Directive },
+      Store,
+      VM,
+    } = runtime('')
+    const now = Date.now
+    Date.now = () => 123
+
+    try {
+      VM.emitAll([
+        Directive.CLOCK,
+        Directive.EXIT,
+      ])
+      VM.execute()
+
+      expect(Store.ax).toBe(123)
+    } finally {
+      Date.now = now
+    }
+  })
+
+  it('executes file directives', () => {
+    const {
+      constants: { Directive },
+      Store,
+      VM,
+    } = runtime('')
+
+    VM.emitAll([
+      Directive.CONST,
+      'fixture/assignment',
+      Directive.FILE,
+      Directive.EXIT,
+    ])
+    VM.execute()
+
+    expect(Store.ax).toBe('a = 1;\nb = 2 + a;')
+  })
+
+  it('throws when assert receives a falsy value', () => {
+    const {
+      constants: { Directive },
+      VM,
+    } = runtime('')
+
+    VM.emitAll([
+      Directive.CONST,
+      0,
+      Directive.ASSERT,
+      Directive.EXIT,
+    ])
+
+    expect(() => VM.execute()).toThrow('RUNTIME ERR: assert failed')
+  })
+
   it('executes call and return directives', () => {
     const {
       constants: { Directive },

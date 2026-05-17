@@ -61,4 +61,26 @@ describe('tokenizer', () => {
     next()
     expect(TokenState.token).toBe(TokenKind.Return)
   })
+
+  it('recognizes string literals', () => {
+    const {
+      constants: { TokenKind },
+      next,
+      Source,
+      TokenState,
+    } = runtime('')
+
+    Source.initialize('load("fixture/assignment")')
+
+    next()
+    expect(TokenState.token).toBe(TokenKind.Identifier)
+    expect(TokenState.value).toBe('load')
+
+    next()
+    expect(TokenState.token).toBe('(')
+
+    next()
+    expect(TokenState.token).toBe(TokenKind.String)
+    expect(TokenState.value).toBe('fixture/assignment')
+  })
 })

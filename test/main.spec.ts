@@ -72,6 +72,30 @@ describe('language execution', () => {
     expect(Store.env.get('result')).toBe(11)
   })
 
+  it('executes the load file fixture', () => {
+    const logs: unknown[][] = []
+    const originalLog = console.log
+    console.log = (...values: unknown[]) => { logs.push(values) }
+
+    try {
+      const { Store, VM } = compile(readFile('../fixture/load-file'))
+
+      VM.execute()
+
+      expect(Store.ax).toBe('a = 1;\nb = 2 + a;')
+      expect(Store.env.get('content')).toBe('a = 1;\nb = 2 + a;')
+      expect(logs).toEqual([['a = 1;\nb = 2 + a;']])
+    } finally {
+      console.log = originalLog
+    }
+  })
+
+  it('executes the assertions fixture until the failed assertion', () => {
+    const { VM } = compile(readFile('../fixture/assertions'))
+
+    expect(() => VM.execute()).toThrow('RUNTIME ERR: assert failed')
+  })
+
   it('executes if and else branches', () => {
     expect(execute(`value = 0;
 if (value) {
@@ -125,5 +149,28 @@ add(1);`)).toThrow('RUNTIME ERR: add expected 2 args but got 1')
     } finally {
       console.log = originalLog
     }
+  })
+
+  it('executes assert system calls with expression arguments', () => {
+    expect(execute('assert(1 + 2 < 4); 7;')).toBe(7)
+  })
+
+  it('executes clock system calls', () => {
+    const now = Date.now
+    Date.now = () => 123
+
+    try {
+      expect(execute('clock();')).toBe(123)
+    } finally {
+      Date.now = now
+    }
+  })
+
+  it('executes load system calls', () => {
+    expect(execute('load("fixture/assignment");')).toBe('a = 1;\nb = 2 + a;')
+  })
+
+  it('rejects failed assertions', () => {
+    expect(() => execute('assert(1 + 2 < 3);')).toThrow('RUNTIME ERR: assert failed')
   })
 })

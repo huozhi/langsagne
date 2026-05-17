@@ -24,6 +24,7 @@ function token() {
 }
 
 // expr: NUMBER
+// | STRING
 // | OP expr
 // | ( expr )
 // | ident
@@ -87,6 +88,13 @@ function argList() {
   }
 
   return argc
+}
+
+function emptyArgList() {
+  expect('(')
+  next()
+  expect(')')
+  next()
 }
 
 function fnDecl() {
@@ -184,6 +192,9 @@ function expr(level = 0) {
     // console.log('push value', TokenState.value)
     emit(Directive.CONST, TokenState.value)
     next()
+  } else if (TokenState.token === TokenKind.String) {
+    emit(Directive.CONST, TokenState.value)
+    next()
   } else if (TokenState.token === '(') {
     expect('(')
     next()
@@ -201,6 +212,23 @@ function expr(level = 0) {
         expect(')')
         next()
         emit(Directive.PRINT)
+      } else if (ident === 'assert') {
+        expect('(')
+        next()
+        expr(TokenKind.Assign)
+        expect(')')
+        next()
+        emit(Directive.ASSERT)
+      } else if (ident === 'clock') {
+        emptyArgList()
+        emit(Directive.CLOCK)
+      } else if (ident === 'load') {
+        expect('(')
+        next()
+        expr(TokenKind.Assign)
+        expect(')')
+        next()
+        emit(Directive.FILE)
       } else {
         const argc = argList()
         emit(Directive.CALL, ident, argc)

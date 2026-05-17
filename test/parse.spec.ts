@@ -62,6 +62,49 @@ describe('parser', () => {
     ])
   })
 
+  it('emits an assert directive for expression arguments', () => {
+    const {
+      constants: { Directive },
+      VM,
+    } = compile('assert(1 + 2 < 4);')
+
+    expect(VM.directives()).toEqual([
+      Directive.JMP,
+      2,
+      Directive.CONST,
+      1,
+      Directive.PUSH,
+      Directive.CONST,
+      2,
+      Directive.ADD,
+      Directive.PUSH,
+      Directive.CONST,
+      4,
+      Directive.LT,
+      Directive.ASSERT,
+    ])
+  })
+
+  it('emits directives for clock and load system calls', () => {
+    const {
+      constants: { Directive },
+      VM,
+    } = compile('now = clock(); value = load("fixture/assignment");')
+
+    expect(VM.directives()).toEqual([
+      Directive.JMP,
+      2,
+      Directive.CLOCK,
+      Directive.STORE,
+      'now',
+      Directive.CONST,
+      'fixture/assignment',
+      Directive.FILE,
+      Directive.STORE,
+      'value',
+    ])
+  })
+
   it('emits branch directives for while loops with expression bodies', () => {
     const {
       constants: { Directive },

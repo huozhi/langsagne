@@ -1,6 +1,7 @@
 import { Directive, type DirectiveName } from './directive.ts'
 import { Store, type RuntimeValue } from './storage.ts'
 import { error } from '../error.ts'
+import { readFileSync } from 'node:fs'
 
 export type DirectiveItem = DirectiveName | RuntimeValue
 
@@ -111,6 +112,11 @@ function execute(text: DirectiveItem[], shouldTrace: boolean) {
     else if (op === Directive.DIV) { Store.ax = popNumber() / numberValue(Store.ax) }
     else if (op === Directive.LT) { Store.ax = popNumber() < numberValue(Store.ax) ? 1 : 0 }
     else if (op === Directive.PRINT) { console.log(Store.ax) }
+    else if (op === Directive.ASSERT) {
+      if (!Store.ax) error('RUNTIME', 'assert failed')
+    }
+    else if (op === Directive.CLOCK) { Store.ax = Date.now() }
+    else if (op === Directive.FILE) { Store.ax = readFileSync(String(Store.ax), 'utf8') }
     else if (op === Directive.CALL) {
       // CALL stores two operands after the directive: function name and arg count.
       const name = String(text[Store.pc++])
