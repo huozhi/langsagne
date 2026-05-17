@@ -36,11 +36,11 @@ export default function RootLayout({ children }: LayoutProps) {
           <footer className="mt-8 border-t border-line pt-4 text-sm leading-snug text-muted">
             <a
               className="underline decoration-line underline-offset-2 hover:text-fg"
-              href="https://github.com/huozhi"
+              href="https://github.com/huozhi/langsagne"
               target="_blank"
               rel="noreferrer"
             >
-              github
+              source
             </a>
             <span className="mx-2">.</span>
             <a
