@@ -5,6 +5,7 @@ import { error } from '../error.ts'
 export type DirectiveItem = DirectiveName | RuntimeValue
 
 type VmSnapshot = {
+  pc: number
   ax: RuntimeValue
   vs: RuntimeValue[]
   env: Record<string, RuntimeValue>
@@ -62,8 +63,9 @@ function snapshotEnv() {
   return env
 }
 
-function snapshot(): VmSnapshot {
+function snapshot(pc = Store.pc): VmSnapshot {
   return {
+    pc,
     ax: Store.ax,
     vs: [...Store.vs],
     env: snapshotEnv(),

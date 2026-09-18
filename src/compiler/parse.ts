@@ -1,3 +1,4 @@
+import { Source } from '../lexer/source.ts'
 import { TokenState } from '../lexer/token-state.ts'
 import { TokenKind } from '../lexer/token-kind.ts'
 import { next } from '../lexer/tokenize.ts'
@@ -118,9 +119,9 @@ function fnDecl() {
 }
 
 function statement() {
-  if (!TokenState.token && !TokenState.eof()) next()
+  if (!TokenState.token && !Source.eof()) next()
 
-  if (!TokenState.eof() && TokenState.token === TokenKind.If) {
+  if (!Source.eof() && TokenState.token === TokenKind.If) {
     next()
     expect('(')
     next()
@@ -143,7 +144,7 @@ function statement() {
     } else {
       VM.patch(elseTarget, VM.position())
     }
-  } else if (!TokenState.eof() && TokenState.token === TokenKind.While) {
+  } else if (!Source.eof() && TokenState.token === TokenKind.While) {
     next()
     expect('(')
     next()
@@ -177,7 +178,7 @@ function statement() {
 function block() {
   expect('{')
   next()
-  while (!TokenState.eof() && TokenState.token !== '}') {
+  while (!Source.eof() && TokenState.token !== '}') {
     statement()
   }
   expect('}')
@@ -185,7 +186,8 @@ function block() {
 }
 
 function expr(level = 0) {
-  if (TokenState.eof()) return
+  if (Source.eof()) return
+  // console.log('Source.val', Source.val)
   if (TokenState.token === TokenKind.Number) {
     // console.log('push value', TokenState.value)
     emit(Directive.CONST, TokenState.value)
@@ -257,7 +259,7 @@ export function parse() {
 
   let mainStart: number | null = null
 
-  while (!TokenState.eof()) {
+  while (!Source.eof()) {
     if (!TokenState.token) next()
     if (TokenState.token === TokenKind.Function) {
       fnDecl()

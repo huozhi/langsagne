@@ -6,7 +6,7 @@ describe('tokenizer', () => {
     const {
       constants: { TokenKind },
       next,
-      TokenState: Source,
+      Source,
       TokenState,
     } = runtime('')
 
@@ -36,7 +36,7 @@ describe('tokenizer', () => {
     const {
       constants: { TokenKind },
       next,
-      TokenState: Source,
+      Source,
       TokenState,
     } = runtime('')
 
@@ -66,7 +66,7 @@ describe('tokenizer', () => {
     const {
       constants: { TokenKind },
       next,
-      TokenState: Source,
+      Source,
       TokenState,
     } = runtime('')
 
