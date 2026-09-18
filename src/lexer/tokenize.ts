@@ -1,4 +1,3 @@
-import { Source } from './source.ts'
 import { TokenState } from './token-state.ts'
 import { TokenKind } from './token-kind.ts'
 
@@ -18,19 +17,19 @@ function setToken(token: string | number, value: string | number | null = null) 
 function finishToken(startLine: number, startColumn: number) {
   TokenState.startLine = startLine
   TokenState.startColumn = startColumn
-  TokenState.length = Math.max(1, Source.column - startColumn)
+  TokenState.length = Math.max(1, TokenState.column - startColumn)
 }
 
 export function next() {
-  while (!Source.eof()) {
-    const startLine = Source.line
-    const startColumn = Source.column
-    const ch = Source.read()
+  while (!TokenState.eof()) {
+    const startLine = TokenState.line
+    const startColumn = TokenState.column
+    const ch = TokenState.read()
 
     if (isDigit(ch)) {
       let value = (+ch)
-      while (isDigit(Source.val)) {
-        value = value * 10 + (+Source.read())
+      while (isDigit(TokenState.val)) {
+        value = value * 10 + (+TokenState.read())
       }
       setToken(TokenKind.Number, value)
       finishToken(startLine, startColumn)
@@ -39,10 +38,10 @@ export function next() {
 
     if (ch === '"' || ch === "'") {
       let value = ''
-      while (!Source.eof() && Source.val !== ch) {
-        value += Source.read()
+      while (!TokenState.eof() && TokenState.val !== ch) {
+        value += TokenState.read()
       }
-      Source.read()
+      TokenState.read()
       setToken(TokenKind.String, value)
       finishToken(startLine, startColumn)
       return TokenState
@@ -50,8 +49,8 @@ export function next() {
 
     if (isAlpha(ch) || ch === '_') {
       let ident = ch
-      while (isAlpha(Source.val) || Source.val === '_' || isDigit(Source.val)) {
-        ident += Source.read()
+      while (isAlpha(TokenState.val) || TokenState.val === '_' || isDigit(TokenState.val)) {
+        ident += TokenState.read()
       }
       if (ident === 'while') setToken(TokenKind.While)
       else if (ident === 'if') setToken(TokenKind.If)
