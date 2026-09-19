@@ -1,5 +1,4 @@
-import { Source } from '../lexer/source.ts'
-import { TokenState } from '../lexer/token-state.ts'
+import { Source, TokenState } from '../lexer/tokenize.ts'
 import { Store } from './storage.ts'
 import { VM } from './vm.ts'
 

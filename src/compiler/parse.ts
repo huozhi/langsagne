@@ -1,8 +1,7 @@
-import { Source } from '../lexer/source.ts'
-import { TokenState } from '../lexer/token-state.ts'
+import { Source, TokenState } from '../lexer/tokenize.ts'
 import { TokenKind } from '../lexer/token-kind.ts'
 import { next } from '../lexer/tokenize.ts'
-import { Directive } from '../runtime/directive.ts'
+import { Directive, type DirectiveName } from '../runtime/directive.ts'
 import { VM } from '../runtime/vm.ts'
 import { error } from '../error.ts'
 
@@ -21,6 +20,14 @@ function expect(expected: string | number) {
 
 function token() {
   return TokenState.token
+}
+
+const binary: Record<number, [number, DirectiveName]> = {
+  [TokenKind.Add]: [TokenKind.Multiply, Directive.ADD],
+  [TokenKind.Subtract]: [TokenKind.Multiply, Directive.SUB],
+  [TokenKind.Multiply]: [TokenKind.Multiply + 1, Directive.MUL],
+  [TokenKind.Divide]: [TokenKind.Multiply + 1, Directive.DIV],
+  [TokenKind.LessThan]: [TokenKind.Add, Directive.LT],
 }
 
 // expr: NUMBER
@@ -228,12 +235,8 @@ function expr(level = 0) {
   }
 
   while ((TokenState.token as number) >= level) {
-    // console.log('level', level)
-    if (TokenState.token === TokenKind.Add) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply); emit(Directive.ADD) }
-    else if (TokenState.token === TokenKind.Subtract) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply); emit(Directive.SUB) }
-    else if (TokenState.token === TokenKind.Multiply) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply + 1); emit(Directive.MUL) }
-    else if (TokenState.token === TokenKind.Divide) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply + 1); emit(Directive.DIV) }
-    else if (TokenState.token === TokenKind.LessThan) { next(); emit(Directive.PUSH); expr(TokenKind.Add); emit(Directive.LT) }
+    const operation = binary[TokenState.token as number]
+    if (operation) { next(); emit(Directive.PUSH); expr(operation[0]); emit(operation[1]) }
     else if (TokenState.token === ';') {
       next()
     }
