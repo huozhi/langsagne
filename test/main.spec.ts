@@ -4,6 +4,12 @@ import { compile } from './helpers.ts'
 import { readFile } from './utils.ts'
 
 describe('language execution', () => {
+  it('groups operators by precedence and evaluates equal precedence left to right', () => {
+    expect(execute('8 / 4 / 2;')).toBe(1)
+    expect(execute('8 / (4 / 2);')).toBe(4)
+    expect(execute('2 + 3 * 4;')).toBe(14)
+  })
+
   it('executes the assignment fixture', () => {
     const { Store, VM } = compile(readFile('../examples/assignment'))
 
