@@ -1,5 +1,5 @@
 import { Source, TokenState } from '../lexer/tokenize.ts'
-import { TokenKind } from '../lexer/token-kind.ts'
+import { Precedence, TokenKind } from '../lexer/token-kind.ts'
 import { next } from '../lexer/tokenize.ts'
 import { Directive, type DirectiveName } from '../runtime/directive.ts'
 import { VM } from '../runtime/vm.ts'
@@ -23,11 +23,11 @@ function token() {
 }
 
 const binary: Record<number, [precedence: number, op: DirectiveName]> = {
-  [TokenKind.LessThan]: [2, Directive.LT],
-  [TokenKind.Add]: [3, Directive.ADD],
-  [TokenKind.Subtract]: [3, Directive.SUB],
-  [TokenKind.Multiply]: [4, Directive.MUL],
-  [TokenKind.Divide]: [4, Directive.DIV],
+  [TokenKind.LessThan]: [Precedence.Comparison, Directive.LT],
+  [TokenKind.Add]: [Precedence.Sum, Directive.ADD],
+  [TokenKind.Subtract]: [Precedence.Sum, Directive.SUB],
+  [TokenKind.Multiply]: [Precedence.Product, Directive.MUL],
+  [TokenKind.Divide]: [Precedence.Product, Directive.DIV],
 }
 
 // expr: NUMBER
@@ -192,7 +192,7 @@ function block() {
   next()
 }
 
-function expr(minPrecedence = 1) {
+function expr(minPrecedence = Precedence.Assignment) {
   if (Source.eof()) return
   // console.log('Source.val', Source.val)
   if (TokenState.token === TokenKind.Number) {
@@ -241,14 +241,14 @@ function expr(minPrecedence = 1) {
       emit(Directive.PUSH)
       expr(operation[0] + 1)
       emit(operation[1])
-    } else if (TokenState.token === TokenKind.Assign && minPrecedence <= 1) {
+    } else if (TokenState.token === TokenKind.Assign && minPrecedence <= Precedence.Assignment) {
       next()
       const target = VM.pop()
       const load = VM.pop()
       if (load !== Directive.LOAD || typeof target !== 'string') {
         error('PARSE', 'bad lvalue in assignment')
       }
-      expr(1)
+      expr(Precedence.Assignment)
       emit(Directive.STORE, target)
     } else break
   }
