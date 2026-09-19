@@ -21,6 +21,14 @@ export const TokenKind = {
   },
 }
 
+// Higher precedence binds more tightly; these values are independent of token IDs.
+export const Precedence = {
+  Assignment: 1,
+  Comparison: 2,
+  Sum: 3,
+  Product: 4,
+} as const
+
 for (const [name, value] of Object.entries(TokenKind)) {
   if (typeof value === 'number') tokenKindLabels.set(value, name)
 }

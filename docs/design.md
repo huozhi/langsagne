@@ -383,9 +383,7 @@ src/
   debug/      ASCII trace rendering
 ```
 
-- `src/lexer/source.ts`: source text and cursor.
-- `src/lexer/token-state.ts`: current token and token value.
-- `src/lexer/tokenize.ts`: character stream to tokens.
+- `src/lexer/tokenize.ts`: source cursor, current token, and character scanning.
 - `src/lexer/token-kind.ts`: token names and precedence ordering. This is a plain object, not a TypeScript `enum`.
 - `src/compiler/parse.ts`: statement/expression parser and directive emission.
 - `src/runtime/storage.ts`: VM registers and runtime state: `env`, `vs`, `pc`, and `ax`.

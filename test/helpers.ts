@@ -1,6 +1,5 @@
 import { parse } from '../src/compiler/parse.ts'
-import { Source } from '../src/lexer/source.ts'
-import { TokenState } from '../src/lexer/token-state.ts'
+import { Source, TokenState } from '../src/lexer/tokenize.ts'
 import { TokenKind } from '../src/lexer/token-kind.ts'
 import { next } from '../src/lexer/tokenize.ts'
 import { Directive } from '../src/runtime/directive.ts'

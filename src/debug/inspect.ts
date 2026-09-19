@@ -1,5 +1,5 @@
 import { parse } from '../compiler/parse.ts'
-import { Source } from '../lexer/source.ts'
+import { Source } from '../lexer/tokenize.ts'
 import { TokenKind } from '../lexer/token-kind.ts'
 import { next } from '../lexer/tokenize.ts'
 import { resetRuntime } from '../runtime/runtime.ts'

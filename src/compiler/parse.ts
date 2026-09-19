@@ -1,8 +1,7 @@
-import { Source } from '../lexer/source.ts'
-import { TokenState } from '../lexer/token-state.ts'
-import { TokenKind } from '../lexer/token-kind.ts'
+import { Source, TokenState } from '../lexer/tokenize.ts'
+import { Precedence, TokenKind } from '../lexer/token-kind.ts'
 import { next } from '../lexer/tokenize.ts'
-import { Directive } from '../runtime/directive.ts'
+import { Directive, type DirectiveName } from '../runtime/directive.ts'
 import { VM } from '../runtime/vm.ts'
 import { error } from '../error.ts'
 
@@ -21,6 +20,14 @@ function expect(expected: string | number) {
 
 function token() {
   return TokenState.token
+}
+
+const binary: Record<number, [precedence: number, op: DirectiveName]> = {
+  [TokenKind.LessThan]: [Precedence.Comparison, Directive.LT],
+  [TokenKind.Add]: [Precedence.Sum, Directive.ADD],
+  [TokenKind.Subtract]: [Precedence.Sum, Directive.SUB],
+  [TokenKind.Multiply]: [Precedence.Product, Directive.MUL],
+  [TokenKind.Divide]: [Precedence.Product, Directive.DIV],
 }
 
 // expr: NUMBER
@@ -70,13 +77,13 @@ function argList() {
   expect('(')
   next()
   if (TokenState.token !== ')') {
-    expr(TokenKind.Assign)
+    expr()
     argc += 1
 
     while (TokenState.token === ',') {
       next()
       emit(Directive.PUSH)
-      expr(TokenKind.Assign)
+      expr()
       argc += 1
     }
   }
@@ -125,7 +132,7 @@ function statement() {
     next()
     expect('(')
     next()
-    expr(TokenKind.Assign)
+    expr()
     expect(')')
     next()
     emit(Directive.BZ)
@@ -149,7 +156,7 @@ function statement() {
     expect('(')
     next()
     const loopStart = VM.position()
-    expr(TokenKind.Assign)
+    expr()
     expect(')')
     next()
     emit(Directive.BZ)
@@ -161,7 +168,7 @@ function statement() {
   } else if (TokenState.token === TokenKind.Return) {
     next()
     if (token() !== ';' && token() !== '}') {
-      expr(TokenKind.Assign)
+      expr()
     }
     emit(Directive.RET)
     if (token() === ';') { next() }
@@ -170,7 +177,7 @@ function statement() {
   } else if (TokenState.token === ';') {
     next() // // empty statement
   } else {
-    expr(TokenKind.Assign)
+    expr()
     if (TokenState.token === ';') { next() } else { error('PARSE', `expected ; but get ${TokenKind.label(TokenState.token as number)}`) }
   }
 }
@@ -185,7 +192,7 @@ function block() {
   next()
 }
 
-function expr(level = 0) {
+function expr(minPrecedence = Precedence.Assignment) {
   if (Source.eof()) return
   // console.log('Source.val', Source.val)
   if (TokenState.token === TokenKind.Number) {
@@ -198,7 +205,7 @@ function expr(level = 0) {
   } else if (TokenState.token === '(') {
     expect('(')
     next()
-    expr(TokenKind.Assign)
+    expr()
     expect(')')
     next()
   } else if (TokenState.token === TokenKind.Identifier) {
@@ -211,7 +218,7 @@ function expr(level = 0) {
       } else if (ident === 'assert') {
         expect('(')
         next()
-        expr(TokenKind.Assign)
+        expr()
         expect(')')
         next()
         emit(Directive.ASSERT)
@@ -227,28 +234,23 @@ function expr(level = 0) {
     }
   }
 
-  while ((TokenState.token as number) >= level) {
-    // console.log('level', level)
-    if (TokenState.token === TokenKind.Add) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply); emit(Directive.ADD) }
-    else if (TokenState.token === TokenKind.Subtract) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply); emit(Directive.SUB) }
-    else if (TokenState.token === TokenKind.Multiply) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply + 1); emit(Directive.MUL) }
-    else if (TokenState.token === TokenKind.Divide) { next(); emit(Directive.PUSH); expr(TokenKind.Multiply + 1); emit(Directive.DIV) }
-    else if (TokenState.token === TokenKind.LessThan) { next(); emit(Directive.PUSH); expr(TokenKind.Add); emit(Directive.LT) }
-    else if (TokenState.token === ';') {
+  while (true) {
+    const operation = binary[TokenState.token as number]
+    if (operation && operation[0] >= minPrecedence) {
       next()
-    }
-    else if (TokenState.token === TokenKind.Assign) {
+      emit(Directive.PUSH)
+      expr(operation[0] + 1)
+      emit(operation[1])
+    } else if (TokenState.token === TokenKind.Assign && minPrecedence <= Precedence.Assignment) {
       next()
       const target = VM.pop()
       const load = VM.pop()
       if (load !== Directive.LOAD || typeof target !== 'string') {
         error('PARSE', 'bad lvalue in assignment')
       }
-      expr(TokenKind.Assign)
+      expr(Precedence.Assignment)
       emit(Directive.STORE, target)
-    }
-
-    else { error('PARSE', 'parsing fail ' + TokenState.token) }
+    } else break
   }
 }
 

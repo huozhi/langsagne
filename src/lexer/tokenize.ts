@@ -1,6 +1,36 @@
-import { Source } from './source.ts'
-import { TokenState } from './token-state.ts'
 import { TokenKind } from './token-kind.ts'
+
+let source = ''
+let index = 0
+let line = 1
+let column = 1
+
+export const Source = {
+  get line() { return line },
+  get column() { return column },
+  get val() { return source[index] },
+  eof: () => index >= source.length,
+  read() {
+    const ch = source[index++]
+    if (ch === '\n') { line++; column = 1 } else column++
+    return ch
+  },
+  initialize(text: string) { source = text; index = 0; line = 1; column = 1 },
+}
+
+export const TokenState = {
+  token: null as string | number | null,
+  value: null as string | number | null,
+  startLine: 1,
+  startColumn: 1,
+  length: 0,
+  reset() { this.token = null; this.value = null; this.startLine = 1; this.startColumn = 1; this.length = 0 },
+}
+
+const operators: Record<string, number> = {
+  '+': TokenKind.Add, '-': TokenKind.Subtract, '*': TokenKind.Multiply,
+  '/': TokenKind.Divide, '=': TokenKind.Assign, '<': TokenKind.LessThan,
+}
 
 function isDigit(chr: string | undefined) {
   return chr != null && chr >= '0' && chr <= '9'
@@ -63,14 +93,9 @@ export function next() {
       return TokenState
     }
 
-    if (ch === '+') { setToken(TokenKind.Add); finishToken(startLine, startColumn); return TokenState }
-    if (ch === '-') { setToken(TokenKind.Subtract); finishToken(startLine, startColumn); return TokenState }
-    if (ch === '*') { setToken(TokenKind.Multiply); finishToken(startLine, startColumn); return TokenState }
-    if (ch === '/') { setToken(TokenKind.Divide); finishToken(startLine, startColumn); return TokenState }
-    if (ch === '=') { setToken(TokenKind.Assign); finishToken(startLine, startColumn); return TokenState }
-    if (ch === '<') { setToken(TokenKind.LessThan); finishToken(startLine, startColumn); return TokenState }
-    if (ch === '(' || ch === ')' || ch === '{' || ch === '}' || ch === ';' || ch === ',') {
-      setToken(ch)
+    const operator = operators[ch ?? '']
+    if (operator || '(){};,'.includes(ch ?? '')) {
+      setToken(operator ?? ch)
       finishToken(startLine, startColumn)
       return TokenState
     }
