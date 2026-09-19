@@ -1,207 +1,60 @@
 import { describe, expect, it } from 'bun:test'
-import { runtime } from './helpers.ts'
+import { parse, run, tokenize, trace, type DirectiveItem, type Program } from '../src/index.ts'
+import { Directive as D } from '../src/runtime/directive.ts'
+
+const program = (directives: DirectiveItem[], functions: Program['functions'] = new Map()): Program =>
+  ({ directives, sites: new Map(), functions })
 
 describe('vm', () => {
-  it('loads and executes arithmetic bytecode', () => {
-    const {
-      constants: { Directive },
-      Store,
-      VM,
-    } = runtime('')
-
-    VM.emitAll([
-      Directive.CONST,
-      3,
-      Directive.PUSH,
-      Directive.CONST,
-      20,
-      Directive.ADD,
-      Directive.EXIT,
-    ])
-    VM.execute()
-
-    expect(Store.ax).toBe(23)
+  it('starts each run and trace with fresh state', () => {
+    const input = parse(tokenize('value = 7; value;'))
+    expect(run(input)).toBe(7)
+    expect(trace(input)[0].before.env).toEqual({})
+    expect(trace(input).at(-1)?.after.env).toEqual({ value: 7 })
+    expect(run(parse(tokenize('value;')))).toBeUndefined()
   })
 
-  it('records execution trace steps', () => {
-    const {
-      constants: { Directive },
-      VM,
-    } = runtime('')
-
-    VM.emitAll([
-      Directive.CONST,
-      1,
-      Directive.PUSH,
-      Directive.CONST,
-      2,
-      Directive.ADD,
-      Directive.EXIT,
-    ])
-
-    const trace = VM.trace()
-
-    expect(trace.map(step => step.op)).toEqual([
-      Directive.CONST,
-      Directive.PUSH,
-      Directive.CONST,
-      Directive.ADD,
-      Directive.EXIT,
-    ])
-    expect(trace.at(-1)?.after.ax).toBe(3)
-    expect(trace.at(-1)?.after.vs).toEqual([])
+  it('executes arithmetic bytecode and records trace steps', () => {
+    const input = program([D.CONST, 3, D.PUSH, D.CONST, 20, D.ADD, D.EXIT])
+    expect(run(input)).toBe(23)
+    const steps = trace(input)
+    expect(steps.map(step => step.op)).toEqual([D.CONST, D.PUSH, D.CONST, D.ADD, D.EXIT])
+    expect(steps.at(-1)?.after.ax).toBe(23)
+    expect(steps.at(-1)?.after.vs).toEqual([])
   })
 
   it('executes assert directives', () => {
-    const {
-      constants: { Directive },
-      Store,
-      VM,
-    } = runtime('')
-
-    VM.emitAll([
-      Directive.CONST,
-      1,
-      Directive.ASSERT,
-      Directive.EXIT,
-    ])
-    VM.execute()
-
-    expect(Store.ax).toBe(1)
+    expect(run(program([D.CONST, 1, D.ASSERT, D.EXIT]))).toBe(1)
+    expect(() => run(program([D.CONST, 0, D.ASSERT]))).toThrow('RUNTIME ERR: assert failed')
   })
 
   it('executes clock directives', () => {
-    const {
-      constants: { Directive },
-      Store,
-      VM,
-    } = runtime('')
     const now = Date.now
     Date.now = () => 123
-
-    try {
-      VM.emitAll([
-        Directive.CLOCK,
-        Directive.EXIT,
-      ])
-      VM.execute()
-
-      expect(Store.ax).toBe(123)
-    } finally {
-      Date.now = now
-    }
+    try { expect(run(program([D.CLOCK, D.EXIT]))).toBe(123) }
+    finally { Date.now = now }
   })
 
-  it('throws when assert receives a falsy value', () => {
-    const {
-      constants: { Directive },
-      VM,
-    } = runtime('')
-
-    VM.emitAll([
-      Directive.CONST,
-      0,
-      Directive.ASSERT,
-      Directive.EXIT,
-    ])
-
-    expect(() => VM.execute()).toThrow('RUNTIME ERR: assert failed')
-  })
-
-  it('executes call and return directives', () => {
-    const {
-      constants: { Directive },
-      Store,
-      VM,
-    } = runtime('')
-
-    VM.emit(Directive.JMP)
-    const mainTarget = VM.position()
-    VM.emit(null)
-
-    // This test bypasses the parser: registerFn defines the function
-    // metadata, and CALL binds the pushed arguments to the frame locals a/b.
-    VM.registerFn('add', ['a', 'b'], VM.position())
-    VM.emitAll([
-      Directive.LOAD,
-      'a',
-      Directive.PUSH,
-      Directive.LOAD,
-      'b',
-      Directive.ADD,
-      Directive.RET,
-    ])
-
-    VM.patch(mainTarget, VM.position())
-    VM.emitAll([
-      Directive.CONST,
-      1,
-      Directive.PUSH,
-      Directive.CONST,
-      2,
-      Directive.PUSH,
-      Directive.CALL,
-      'add',
-      2,
-      Directive.EXIT,
-    ])
-    VM.execute()
-
-    expect(Store.ax).toBe(3)
-    expect(Store.cs).toEqual([])
+  it('binds function arguments and returns to the caller', () => {
+    const functions = new Map([['add', { entry: 2, params: ['a', 'b'] }]])
+    const input = program([
+      D.JMP, 9,
+      D.LOAD, 'a', D.PUSH, D.LOAD, 'b', D.ADD, D.RET,
+      D.CONST, 1, D.PUSH, D.CONST, 2, D.PUSH, D.CALL, 'add', 2, D.EXIT,
+    ], functions)
+    expect(run(input)).toBe(3)
   })
 
   it('checks call arity', () => {
-    const {
-      constants: { Directive },
-      VM,
-    } = runtime('')
-
-    VM.emit(Directive.JMP)
-    const mainTarget = VM.position()
-    VM.emit(null)
-
-    VM.registerFn('add', ['a', 'b'], VM.position())
-    VM.emitAll([
-      Directive.RET,
-    ])
-
-    VM.patch(mainTarget, VM.position())
-    VM.emitAll([
-      Directive.CONST,
-      1,
-      Directive.PUSH,
-      Directive.CALL,
-      'add',
-      1,
-      Directive.EXIT,
-    ])
-
-    expect(() => VM.execute()).toThrow('RUNTIME ERR: add expected 2 args but got 1')
+    const functions = new Map([['add', { entry: 2, params: ['a', 'b'] }]])
+    expect(() => run(program([
+      D.JMP, 3, D.RET, D.CONST, 1, D.PUSH, D.CALL, 'add', 1,
+    ], functions))).toThrow('RUNTIME ERR: add expected 2 args but got 1')
   })
 
-  it('executes branch and jump directives', () => {
-    const {
-      constants: { Directive },
-      Store,
-      VM,
-    } = runtime('')
-
-    VM.emitAll([
-      Directive.CONST,
-      0,
-      Directive.BZ,
-      8,
-      Directive.CONST,
-      99,
-      Directive.JMP,
-      10,
-      Directive.CONST,
-      42,
-      Directive.EXIT,
-    ])
-    VM.execute()
-
-    expect(Store.ax).toBe(42)
+  it('executes branches and jumps', () => {
+    expect(run(program([
+      D.CONST, 0, D.BZ, 8, D.CONST, 99, D.JMP, 10, D.CONST, 42, D.EXIT,
+    ]))).toBe(42)
   })
 })

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { execute } from '../src/index.ts'
-import { compile } from './helpers.ts'
+import { execute, inspect } from '../src/index.ts'
 import { readFile } from './utils.ts'
 
 describe('language execution', () => {
@@ -11,43 +10,31 @@ describe('language execution', () => {
   })
 
   it('executes the assignment fixture', () => {
-    const { Store, VM } = compile(readFile('../examples/assignment'))
-
-    VM.execute()
-
-    expect(Store.ax).toBe(3)
-    expect(Store.env.get('a')).toBe(1)
-    expect(Store.env.get('b')).toBe(3)
+    const result = inspect(readFile('../examples/assignment'))
+    expect(result.result).toBe(3)
+    expect(result.env.a).toBe(1)
+    expect(result.env.b).toBe(3)
   })
 
   it('executes the loop fixture', () => {
-    const { Store, VM } = compile(readFile('../examples/loop'))
-
-    VM.execute()
-
-    expect(Store.ax).toBe(1)
-    expect(Store.env.get('i')).toBe(2)
-    expect(Store.env.get('sum')).toBe(1)
+    const result = inspect(readFile('../examples/loop'))
+    expect(result.result).toBe(1)
+    expect(result.env.i).toBe(2)
+    expect(result.env.sum).toBe(1)
   })
 
   it('executes the complex expression fixture', () => {
-    const { Store, VM } = compile(readFile('../examples/complex-expression'))
-
-    VM.execute()
-
-    expect(Store.ax).toBe(41)
-    expect(Store.env.get('base')).toBe(14)
-    expect(Store.env.get('offset')).toBe(27)
+    const result = inspect(readFile('../examples/complex-expression'))
+    expect(result.result).toBe(41)
+    expect(result.env.base).toBe(14)
+    expect(result.env.offset).toBe(27)
   })
 
   it('executes the weighted loop fixture', () => {
-    const { Store, VM } = compile(readFile('../examples/weighted-loop'))
-
-    VM.execute()
-
-    expect(Store.ax).toBe(16)
-    expect(Store.env.get('i')).toBe(4)
-    expect(Store.env.get('sum')).toBe(12)
+    const result = inspect(readFile('../examples/weighted-loop'))
+    expect(result.result).toBe(16)
+    expect(result.env.i).toBe(4)
+    expect(result.env.sum).toBe(12)
   })
 
   it('executes the print flow fixture', () => {
@@ -56,13 +43,10 @@ describe('language execution', () => {
     console.log = (...values: unknown[]) => { logs.push(values) }
 
     try {
-      const { Store, VM } = compile(readFile('../examples/print-flow'))
-
-      VM.execute()
-
-      expect(Store.ax).toBe(11)
-      expect(Store.env.get('a')).toBe(7)
-      expect(Store.env.get('b')).toBe(11)
+      const result = inspect(readFile('../examples/print-flow'))
+      expect(result.result).toBe(11)
+      expect(result.env.a).toBe(7)
+      expect(result.env.b).toBe(11)
       expect(logs).toEqual([[7]])
     } finally {
       console.log = originalLog
@@ -70,27 +54,19 @@ describe('language execution', () => {
   })
 
   it('executes the function call fixture', () => {
-    const { Store, VM } = compile(readFile('../examples/function-call'))
-
-    VM.execute()
-
-    expect(Store.ax).toBe(11)
-    expect(Store.env.get('result')).toBe(11)
+    const result = inspect(readFile('../examples/function-call'))
+    expect(result.result).toBe(11)
+    expect(result.env.result).toBe(11)
   })
 
   it('executes the if else example', () => {
-    const { Store, VM } = compile(readFile('../examples/if-else'))
-
-    VM.execute()
-
-    expect(Store.ax).toBe(2)
-    expect(Store.env.get('result')).toBe(2)
+    const result = inspect(readFile('../examples/if-else'))
+    expect(result.result).toBe(2)
+    expect(result.env.result).toBe(2)
   })
 
   it('executes the assertions example until the failed assertion', () => {
-    const { VM } = compile(readFile('../examples/assertions'))
-
-    expect(() => VM.execute()).toThrow('RUNTIME ERR: assert failed')
+    expect(() => execute(readFile('../examples/assertions'))).toThrow('RUNTIME ERR: assert failed')
   })
 
   it('executes if and else branches', () => {

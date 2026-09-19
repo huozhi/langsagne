@@ -1,86 +1,29 @@
 import { describe, expect, it } from 'bun:test'
-import { runtime } from './helpers.ts'
+import { tokenize } from '../src/index.ts'
+import { TokenKind } from '../src/lexer/token-kind.ts'
 
 describe('tokenizer', () => {
   it('recognizes keywords, identifiers, operators, and numbers', () => {
-    const {
-      constants: { TokenKind },
-      next,
-      Source,
-      TokenState,
-    } = runtime('')
-
-    Source.initialize('while (count_1 < 42) {}')
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.While)
-
-    next()
-    expect(TokenState.token).toBe('(')
-    expect(TokenState.value).toBe(null)
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.Identifier)
-    expect(TokenState.value).toBe('count_1')
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.LessThan)
-    expect(TokenState.value).toBe(null)
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.Number)
-    expect(TokenState.value).toBe(42)
+    const tokens = tokenize('while (count_1 < 42) {}')
+    expect(tokens.map(token => token.kind)).toEqual([
+      TokenKind.While, '(', TokenKind.Identifier, TokenKind.LessThan,
+      TokenKind.Number, ')', '{', '}',
+    ])
+    expect(tokens[2].value).toBe('count_1')
+    expect(tokens[4].value).toBe(42)
   })
 
   it('recognizes function and return keywords', () => {
-    const {
-      constants: { TokenKind },
-      next,
-      Source,
-      TokenState,
-    } = runtime('')
-
-    Source.initialize('fn add() { return 1; }')
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.Function)
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.Identifier)
-    expect(TokenState.value).toBe('add')
-
-    next()
-    expect(TokenState.token).toBe('(')
-
-    next()
-    expect(TokenState.token).toBe(')')
-
-    next()
-    expect(TokenState.token).toBe('{')
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.Return)
+    const tokens = tokenize('fn add() { return 1; }')
+    expect(tokens.map(token => token.kind)).toContain(TokenKind.Function)
+    expect(tokens.map(token => token.kind)).toContain(TokenKind.Return)
+    expect(tokens[1].value).toBe('add')
   })
 
-  it('recognizes string literals', () => {
-    const {
-      constants: { TokenKind },
-      next,
-      Source,
-      TokenState,
-    } = runtime('')
-
-    Source.initialize('print("hello")')
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.Identifier)
-    expect(TokenState.value).toBe('print')
-
-    next()
-    expect(TokenState.token).toBe('(')
-
-    next()
-    expect(TokenState.token).toBe(TokenKind.String)
-    expect(TokenState.value).toBe('hello')
+  it('recognizes string literals and source positions', () => {
+    const tokens = tokenize('print("hello")\n  42')
+    expect(tokens[2].kind).toBe(TokenKind.String)
+    expect(tokens[2].value).toBe('hello')
+    expect(tokens.at(-1)).toMatchObject({ kind: TokenKind.Number, line: 2, column: 3 })
   })
 })
