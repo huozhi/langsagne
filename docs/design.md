@@ -13,35 +13,19 @@ result = add(1, 2);
 result;
 ```
 
-## Four-Part Philosophy
+## Four-Part Pipeline
 
-c4 is useful here because it shows that a language can be understood as four cooperating parts. This project should keep that shape, but make each part explicit and testable.
+Each phase has one entry point and passes a value to the next. Parsing emits directives as part of building the program; tracing reuses the execution loop.
 
 ```text
-        +-------------+
-text -> | 1. tokenize | -> tokens
-        +-------------+
-                 |
-                 v
-        +-------------+
-        | 2. parse    | -> syntax decisions
-        +-------------+
-                 |
-                 v
-        +-------------+
-        | 3. emit     | -> directives / bytecode
-        +-------------+
-                 |
-                 v
-        +-------------+
-        | 4. execute  | -> JavaScript value
-        +-------------+
+source -> tokenize -> tokens -> parse -> program -> run   -> value
+                                          \-------> trace -> steps
 ```
 
 1. `tokenize`: read characters and produce small token facts like `number`, `identifier`, `+`, `fn`, `return`.
-2. `parse`: understand token order, such as expression precedence, blocks, calls, and function declarations.
-3. `emit`: write simple directives that describe what the VM should do.
-4. `execute`: walk directives with a tiny runtime stack and produce the final value.
+2. `parse`: understand token order and produce directives, source positions, and function definitions.
+3. `run`: execute a program with local stack, environment, and call frames.
+4. `trace`: run the same program while collecting state changes.
 
 ## c4 Concept Mapping
 
@@ -50,19 +34,19 @@ This project keeps c4's broad flow, but uses names and runtime shapes that fit a
 ```text
 c4 concept                 this project                         purpose
 --------------------------------------------------------------------------------
-p, lp                      lexer - source cursor                source position
-tk, ival                   lexer - token state                  current token/value
+p, lp                      tokenize local cursor                source position
+tk, ival                   token records                        token kind/value
 token constants            lexer - token kinds                  token names + precedence
-next()                     lexer - tokenizer                    scan chars into tokens
+next()                     tokenize                             scan chars into tokens
 sym, id                    future compiler bindings             identifier metadata
-expr(), stmt()             compiler - parser                    parse and emit directives
+expr(), stmt()             parse                                parse and emit directives
 e, le                      runtime - directives                 directive array
 instruction constants      runtime - directives                 directive names
 pc                         runtime - pc                         directive pointer
 a                          runtime - ax                         accumulator/current value
 sp                         runtime - vs                         value stack for expressions
 data + globals             runtime - env                        runtime name/value table
-bp + call stack behavior   runtime - future cs                  function frames
+bp + call stack behavior   run local call stack                 function frames
 -s / debug printing        debug - trace renderer               ASCII execution trace
 ```
 
@@ -377,19 +361,19 @@ The source tree is grouped by the few concepts in the compiler/runtime pipeline:
 
 ```text
 src/
-  lexer/      source cursor, token state, tokenizer, token kinds
-  compiler/   parser and directive emission
-  runtime/    directives, VM state, execution, reset helpers
-  debug/      ASCII trace rendering
+  tokenize.ts  source text to tokens
+  parse.ts     tokens to program
+  run.ts       program execution
+  trace.ts     traced execution
+  types.ts     shared data shapes
+  lexer/       token kinds and precedence
+  runtime/     directive names
+  debug/       inspection and ASCII trace rendering
 ```
 
-- `src/lexer/tokenize.ts`: source cursor, current token, and character scanning.
-- `src/lexer/token-kind.ts`: token names and precedence ordering. This is a plain object, not a TypeScript `enum`.
-- `src/compiler/parse.ts`: statement/expression parser and directive emission.
-- `src/runtime/storage.ts`: VM registers and runtime state: `env`, `vs`, `pc`, and `ax`.
+- `src/lexer/token-kind.ts`: token names and precedence levels.
 - `src/runtime/directive.ts`: VM directive names.
-- `src/runtime/vm.ts`: directive stream and interpreter loop.
-- `src/runtime/runtime.ts`: reset helper for tests and repeated runs.
+- Lexer, parser, and execution state are local to each call; no reset is needed.
 - `src/debug/trace.ts`: ASCII execution trace rendering.
 
 ## Near-Term Plan

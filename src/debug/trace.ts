@@ -1,5 +1,4 @@
-import type { DirectiveItem, VmTraceStep } from '../runtime/vm.ts'
-import type { RuntimeValue } from '../runtime/storage.ts'
+import type { DirectiveItem, VmTraceStep, RuntimeValue } from '../types.ts'
 
 function valueText(value: RuntimeValue) {
   if (value === undefined) return 'undefined'

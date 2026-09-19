@@ -1,29 +1,13 @@
-import { parse } from '../src/compiler/parse.ts'
-import { Source, TokenState } from '../src/lexer/tokenize.ts'
-import { TokenKind } from '../src/lexer/token-kind.ts'
-import { next } from '../src/lexer/tokenize.ts'
+import { parse, tokenize, trace } from '../src/index.ts'
 import { Directive } from '../src/runtime/directive.ts'
-import { resetRuntime } from '../src/runtime/runtime.ts'
-import { Store } from '../src/runtime/storage.ts'
-import { VM } from '../src/runtime/vm.ts'
-
-export function runtime(code: string) {
-  resetRuntime(code)
-
-  return {
-    constants: { Directive, TokenKind },
-    parse,
-    Source,
-    Store,
-    TokenState,
-    next,
-    VM,
-  }
-}
 
 export function compile(code: string) {
-  const modules = runtime(code)
-  modules.parse()
-
-  return modules
+  const program = parse(tokenize(code))
+  return {
+    constants: { Directive },
+    VM: {
+      directives: () => program.directives,
+      trace: () => trace(program),
+    },
+  }
 }

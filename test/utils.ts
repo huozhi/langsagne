@@ -1,4 +1,4 @@
-import type { DirectiveItem } from '../src/runtime/vm.ts'
+import type { DirectiveItem } from '../src/types.ts'
 
 import fs from 'node:fs'
 import path from 'node:path'

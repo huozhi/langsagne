@@ -1,10 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { parse } from '../src/compiler/parse.ts'
+import { parse, tokenize, run, trace } from '../src/index.ts'
 import { renderTrace, renderTraceFrame } from '../src/debug/trace.ts'
 import { LangError } from '../src/error.ts'
-import { resetRuntime } from '../src/runtime/runtime.ts'
-import { VM } from '../src/runtime/vm.ts'
 
 const defaultExamples = [
   'examples/assignment',
@@ -29,11 +27,11 @@ function readSource(target: string) {
 function compileFixture(target: string) {
   const source = readSource(target)
 
-  resetRuntime(source)
-  parse()
+  const program = parse(tokenize(source))
 
   return {
-    directives: VM.directives(),
+    directives: program.directives,
+    program,
     source,
     target,
   }
@@ -79,8 +77,7 @@ async function waitForKey() {
 function execFixture(target: string) {
   const source = readSource(target)
   try {
-    compileFixture(target)
-    VM.execute()
+    run(compileFixture(target).program)
   } catch (err) {
     console.error(formatError(target, source, err))
     process.exitCode = 1
@@ -90,11 +87,11 @@ function execFixture(target: string) {
 function renderTraceFor(target: string, index: number) {
   const source = readSource(target)
   try {
-    const { directives } = compileFixture(target)
-    const trace = VM.trace()
+    const { directives, program } = compileFixture(target)
+    const steps = trace(program)
 
     if (index > 0) console.log('\n')
-    console.log(renderTrace(target, source, directives, trace))
+    console.log(renderTrace(target, source, directives, steps))
   } catch (err) {
     if (index > 0) console.log('\n')
     console.error(formatError(target, source, err))
@@ -105,11 +102,11 @@ function renderTraceFor(target: string, index: number) {
 async function renderInteractive(target: string) {
   const source = readSource(target)
   let compiled: ReturnType<typeof compileFixture>
-  let trace: ReturnType<typeof VM.trace>
+  let steps: ReturnType<typeof trace>
 
   try {
     compiled = compileFixture(target)
-    trace = VM.trace()
+    steps = trace(compiled.program)
   } catch (err) {
     console.error(formatError(target, source, err))
     process.exitCode = 1
@@ -125,12 +122,12 @@ async function renderInteractive(target: string) {
 
   while (true) {
     clearScreen()
-    console.log(renderTraceFrame(target, source, compiled.directives, trace, step))
+    console.log(renderTraceFrame(target, source, compiled.directives, steps, step))
 
     const action = await waitForKey()
     if (action === 'quit') break
     if (action === 'previous') step = Math.max(0, step - 1)
-    else if (step >= trace.length - 1) break
+    else if (step >= steps.length - 1) break
     else step += 1
   }
 

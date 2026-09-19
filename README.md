@@ -151,7 +151,7 @@ import { inspect } from './src/index.ts'
 const { directives, trace, result } = inspect('a = 1; a;')
 ```
 
-Runtime code is under `src/` (`lexer/`, `compiler/`, `runtime/`, `debug/`). Tests are in `test/`.
+The four phase entry points are `src/tokenize.ts`, `src/parse.ts`, `src/run.ts`, and `src/trace.ts`. Each call owns its state. Tests are in `test/`.
 
 ## Plan
 

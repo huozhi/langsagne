@@ -1,10 +1,8 @@
-import { parse } from '../compiler/parse.ts'
-import { Source } from '../lexer/tokenize.ts'
+import { parse } from '../parse.ts'
 import { TokenKind } from '../lexer/token-kind.ts'
-import { next } from '../lexer/tokenize.ts'
-import { resetRuntime } from '../runtime/runtime.ts'
-import { Store, type RuntimeValue } from '../runtime/storage.ts'
-import { VM, type DirectiveItem, type VmTraceStep } from '../runtime/vm.ts'
+import { tokenize } from '../tokenize.ts'
+import { trace } from '../trace.ts'
+import type { RuntimeValue, DirectiveItem, VmTraceStep } from '../types.ts'
 
 export type InspectToken = {
   label: string
@@ -28,38 +26,20 @@ function tokenLabel(token: string | number | null) {
   return token
 }
 
-function scanTokens(code: string) {
-  resetRuntime(code)
-  const tokens: InspectToken[] = []
-
-  while (!Source.eof()) {
-    const state = next()
-    if (state.token !== null) {
-      tokens.push({
-        label: tokenLabel(state.token),
-        value: state.value,
-        line: state.startLine,
-        column: state.startColumn,
-        length: state.length,
-      })
-    }
-  }
-
-  return tokens
-}
-
 export function inspect(code: string): InspectResult {
-  const tokens = scanTokens(code)
-
-  resetRuntime(code)
-  parse()
-  const trace = VM.trace()
+  const tokens = tokenize(code)
+  const program = parse(tokens)
+  const steps = trace(program)
+  const last = steps.at(-1)?.after
 
   return {
-    directives: VM.directives(),
-    env: Object.fromEntries(Store.env),
-    result: Store.ax,
-    tokens,
-    trace,
+    directives: program.directives,
+    env: last?.env ?? {},
+    result: last ? last.ax : 0,
+    tokens: tokens.map(token => ({
+      label: tokenLabel(token.kind), value: token.value,
+      line: token.line, column: token.column, length: token.length,
+    })),
+    trace: steps,
   }
 }
